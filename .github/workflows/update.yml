@@ -64,7 +64,7 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.hospital }}" ]; then
             echo "선택 병원 수집: ${{ github.event.inputs.hospital }}"
-            python collect_data.py --hospital "${{ github.event.inputs.hospital }}"
+            python collect_data.py --hospital "${{ github.event.inputs.hospital }}" --force
           else
             echo "전체 병원 수집"
             python collect_data.py --force
