@@ -416,8 +416,8 @@ const DATA_DIR = "data/";
 const MAX_ROWS = 80;
 
 // ── 관리자 설정 (GitHub 배포 후 본인 정보로 수정) ──
-const GITHUB_OWNER = "real4goon";   // 예: "real4goon"
-const GITHUB_REPO  = "new-hl-dashboard";    // 예: "nhs-dashboard"
+const GITHUB_OWNER = "여기에_깃허브_계정명";   // 예: "real4goon"
+const GITHUB_REPO  = "여기에_리포지토리명";    // 예: "nhs-dashboard"
 const ADMIN_PW     = "hallym2026";             // 관리자 비밀번호 (자유롭게 변경)
 
 /* ══════════════════════════════════════════════
@@ -1125,7 +1125,7 @@ async function triggerUpdate(hospital) {
     addLog('❌ index.html 상단의 GITHUB_OWNER, GITHUB_REPO를 먼저 설정해주세요.', 'err'); return;
   }
 
-  const label = hospital || '전체 병원';
+  const label = hospital || `전체 병원 (${Object.keys(metadata).length}개)`;
   addLog(`⏳ ${label} 업데이트 요청 중...`, 'run');
 
   try {
@@ -1138,26 +1138,70 @@ async function triggerUpdate(hospital) {
           'Content-Type': 'application/json',
           'Accept': 'application/vnd.github+json'
         },
-        body: JSON.stringify({
-          ref: 'main',
-          inputs: { hospital: hospital }
-        })
+        body: JSON.stringify({ ref: 'main', inputs: { hospital } })
       }
     );
 
     if (res.status === 204) {
       addLog(`✅ ${label} 업데이트 요청 성공!`, 'ok');
-      addLog(`📋 GitHub Actions 탭에서 진행 상황을 확인하세요.`, 'run');
-      addLog(`⏱ 완료까지 약 10~30분 소요됩니다.`, 'run');
+      addLog(`⏱ 잠시 후 진행 상황을 자동으로 확인합니다...`, 'run');
+      // 5초 후부터 상태 폴링 시작
+      setTimeout(() => pollRunStatus(label), 5000);
     } else if (res.status === 401) {
       addLog('❌ 토큰 인증 실패. 토큰을 다시 확인해주세요.', 'err');
     } else if (res.status === 422) {
-      addLog('❌ 워크플로 파일(.github/workflows/update.yml)이 없거나 브랜치 이름이 다릅니다.', 'err');
+      addLog('❌ 워크플로 파일이 없거나 브랜치 이름이 다릅니다.', 'err');
     } else {
       addLog(`❌ 오류 발생 (HTTP ${res.status})`, 'err');
     }
   } catch (e) {
     addLog(`❌ 네트워크 오류: ${e.message}`, 'err');
+  }
+}
+
+// 실행 상태 폴링 (15초마다 최대 40회 = 최대 10분)
+let pollCount = 0;
+async function pollRunStatus(label) {
+  const token = localStorage.getItem('gh_token');
+  if (!token) return;
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs?per_page=1`,
+      { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } }
+    );
+    const data = await res.json();
+    const run  = data.workflow_runs?.[0];
+    if (!run) return;
+
+    const statusMap = {
+      queued     : '⏳ 대기 중...',
+      in_progress: '🔄 수집 중...',
+      completed  : null
+    };
+    const conclusionMap = {
+      success : '✅ 완료!',
+      failure : '❌ 실패',
+      cancelled: '⚠️ 취소됨'
+    };
+
+    if (run.status === 'completed') {
+      const msg = conclusionMap[run.conclusion] || `완료 (${run.conclusion})`;
+      addLog(`${msg} ${label} — ${new Date(run.updated_at).toLocaleTimeString('ko-KR')}`, run.conclusion==='success'?'ok':'err');
+      if (run.conclusion === 'success') {
+        addLog(`🔗 <a href="${run.html_url}" target="_blank" style="color:var(--blue)">Actions 상세 보기</a>`, '');
+        addLog(`💡 페이지를 새로고침하면 업데이트된 데이터를 볼 수 있습니다.`, 'run');
+      }
+      pollCount = 0;
+    } else {
+      pollCount++;
+      const elapsed = (pollCount * 15);
+      addLog(`${statusMap[run.status]||run.status} (${elapsed}초 경과)`, 'run');
+      if (pollCount < 40) setTimeout(() => pollRunStatus(label), 15000);
+      else addLog('⚠️ 시간 초과. GitHub Actions 탭에서 직접 확인해주세요.', 'err');
+    }
+  } catch(e) {
+    addLog(`상태 확인 실패: ${e.message}`, 'err');
   }
 }
 
