@@ -1043,7 +1043,7 @@ function checkAdminPw() {
 
 function renderAdminPanel() {
   const isConfigured = GITHUB_OWNER !== '여기에_깃허브_계정명';
-  const token = sessionStorage.getItem('gh_token') || '';
+  const token = localStorage.getItem('gh_token') || '';
 
   document.getElementById('adminTitle').textContent = '🔓 관리자 패널 — 데이터 업데이트';
 
@@ -1083,7 +1083,7 @@ function renderAdminPanel() {
     <div class="admin-token-hint">
       토큰이 없다면: <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">GitHub → Settings → Tokens (classic)</a><br>
       권한 체크: <b>repo</b> ✅ &nbsp; <b>workflow</b> ✅ &nbsp; → Generate token → 복사 후 위에 붙여넣기<br>
-      입력한 토큰은 이 브라우저에만 임시 저장됩니다 (세션 종료 시 삭제).
+      💾 입력한 토큰은 이 브라우저에 영구 저장됩니다. PC마다 최초 1회만 입력하면 됩니다.
     </div>
 
     <div class="admin-section-title">병원별 업데이트</div>
@@ -1113,13 +1113,13 @@ function renderAdminPanel() {
 function saveToken() {
   const val = document.getElementById('adminTokenInput')?.value?.trim();
   if (!val) { addLog('❌ 토큰을 입력해주세요.', 'err'); return; }
-  sessionStorage.setItem('gh_token', val);
+  localStorage.setItem('gh_token', val);
   addLog('✅ 토큰이 저장되었습니다.', 'ok');
   renderAdminPanel();
 }
 
 async function triggerUpdate(hospital) {
-  const token = sessionStorage.getItem('gh_token');
+  const token = localStorage.getItem('gh_token');
   if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
   if (GITHUB_OWNER === '여기에_깃허브_계정명') {
     addLog('❌ index.html 상단의 GITHUB_OWNER, GITHUB_REPO를 먼저 설정해주세요.', 'err'); return;
