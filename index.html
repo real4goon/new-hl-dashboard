@@ -255,6 +255,56 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
+
+/* ── 관리자 버튼 ── */
+.admin-lock-btn{padding:6px 10px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;font-size:14px;color:var(--muted);transition:.15s;}
+.admin-lock-btn:hover{background:var(--light);color:var(--navy);}
+.admin-lock-btn.unlocked{border-color:#F59E0B;color:#D97706;background:#FFFBEB;}
+
+/* ── 관리자 모달 오버레이 ── */
+.admin-overlay{position:fixed;inset:0;background:rgba(15,39,68,.6);backdrop-filter:blur(3px);z-index:1000;display:flex;align-items:center;justify-content:center;}
+.admin-modal{background:#fff;border-radius:16px;width:540px;max-width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.admin-modal-head{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.admin-modal-head h2{font-size:16px;font-weight:700;color:var(--navy);}
+.admin-close{width:30px;height:30px;border:none;background:var(--light);border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.admin-close:hover{background:#FFE4E8;color:var(--pink);}
+.admin-modal-body{padding:20px 24px;overflow-y:auto;flex:1;}
+
+/* 비밀번호 화면 */
+.admin-pw-wrap{max-width:320px;margin:0 auto;text-align:center;padding:20px 0;}
+.admin-pw-wrap p{font-size:13px;color:var(--muted);margin-bottom:16px;}
+.admin-pw-input{width:100%;padding:11px 16px;border:2px solid var(--border);border-radius:9px;font-size:15px;text-align:center;letter-spacing:4px;font-family:inherit;outline:none;transition:border .2s;}
+.admin-pw-input:focus{border-color:var(--cyan);}
+.admin-pw-btn{margin-top:12px;width:100%;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.admin-pw-btn:hover{background:#2471A3;}
+.admin-pw-err{color:var(--pink);font-size:12px;margin-top:8px;}
+
+/* 관리자 본 화면 */
+.admin-token-row{display:flex;gap:8px;margin-bottom:18px;align-items:center;}
+.admin-token-input{flex:1;padding:9px 14px;border:2px solid var(--border);border-radius:8px;font-size:12.5px;font-family:monospace;outline:none;transition:border .2s;}
+.admin-token-input:focus{border-color:var(--cyan);}
+.admin-token-save{padding:9px 16px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.admin-token-save:hover{background:var(--navy2);}
+.admin-token-hint{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7;}
+.admin-token-hint a{color:var(--blue);}
+
+.admin-section-title{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px;}
+.admin-hosp-grid{display:flex;flex-direction:column;gap:5px;max-height:320px;overflow-y:auto;}
+.admin-hosp-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--light);}
+.admin-hosp-name{flex:1;font-size:13px;font-weight:600;}
+.admin-hosp-name.my{color:var(--pink2);font-weight:700;}
+.admin-hosp-meta{font-size:11px;color:var(--muted);text-align:right;line-height:1.5;}
+.admin-run-btn{padding:5px 14px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--blue);color:#fff;white-space:nowrap;transition:.15s;}
+.admin-run-btn:hover:not(:disabled){background:#2471A3;}
+.admin-run-btn:disabled{opacity:.4;cursor:not-allowed;}
+.admin-run-all{width:100%;padding:11px;background:var(--pink);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:14px;transition:.15s;}
+.admin-run-all:hover:not(:disabled){background:var(--pink2);}
+.admin-run-all:disabled{opacity:.4;cursor:not-allowed;}
+.admin-status-log{margin-top:14px;padding:10px 14px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.8;min-height:40px;max-height:120px;overflow-y:auto;}
+.log-ok{color:#1a7a4a;font-weight:700;}
+.log-err{color:var(--pink);font-weight:700;}
+.log-run{color:var(--blue);}
+.admin-notice{padding:10px 14px;background:#FFF3CD;border:1px solid #F0D060;border-radius:8px;font-size:12px;color:#856404;line-height:1.7;margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -294,6 +344,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
           <button class="lt-btn active" id="ltSb" onclick="setLayout('sidebar')">☰ 목록</button>
           <button class="lt-btn"        id="ltTop" onclick="setLayout('top')">▤ 상단</button>
         </div>
+        <button class="admin-lock-btn" onclick="openAdminPanel()" title="관리자 패널">🔒</button>
       </div>
     </div>
     <!-- 콘텐츠 -->
@@ -363,6 +414,11 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 const MY_HOSP  = "한림성심병원";
 const DATA_DIR = "data/";
 const MAX_ROWS = 80;
+
+// ── 관리자 설정 (GitHub 배포 후 본인 정보로 수정) ──
+const GITHUB_OWNER = "여기에_깃허브_계정명";   // 예: "real4goon"
+const GITHUB_REPO  = "여기에_리포지토리명";    // 예: "nhs-dashboard"
+const ADMIN_PW     = "hallym2026";             // 관리자 비밀번호 (자유롭게 변경)
 
 /* ══════════════════════════════════════════════
    상태
@@ -947,6 +1003,211 @@ function buildColorMap(sorted){
 const escH  = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escJs = s=>(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const truncate=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
+
+/* ══════════════════════════════════════════════
+   관리자 패널
+══════════════════════════════════════════════ */
+let adminUnlocked = false;
+
+function openAdminPanel() {
+  document.getElementById('adminOverlay').style.display = 'flex';
+  if (!adminUnlocked) {
+    setTimeout(()=>{ const el=document.getElementById('adminPwInput'); if(el) el.focus(); }, 100);
+  }
+}
+function closeAdminPanel() {
+  document.getElementById('adminOverlay').style.display = 'none';
+}
+
+function getAdminPw() {
+  // localStorage에 저장된 비밀번호 우선, 없으면 기본값
+  return localStorage.getItem('admin_pw') || ADMIN_PW;
+}
+
+function checkAdminPw() {
+  const val = document.getElementById('adminPwInput').value;
+  if (val === getAdminPw()) {
+    adminUnlocked = true;
+    document.querySelectorAll('.admin-lock-btn').forEach(b => {
+      b.classList.add('unlocked');
+      b.textContent = '🔓';
+    });
+    renderAdminPanel();
+  } else {
+    const err = document.getElementById('adminPwErr');
+    if (err) err.textContent = '비밀번호가 틀렸습니다.';
+    const inp = document.getElementById('adminPwInput');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }
+}
+
+function renderAdminPanel() {
+  const isConfigured = GITHUB_OWNER !== '여기에_깃허브_계정명';
+  const token = sessionStorage.getItem('gh_token') || '';
+
+  document.getElementById('adminTitle').textContent = '🔓 관리자 패널 — 데이터 업데이트';
+
+  const sorted = [
+    ...Object.keys(metadata).filter(n=>n===MY_HOSP),
+    ...Object.keys(metadata).filter(n=>n!==MY_HOSP)
+  ];
+
+  const hospRows = sorted.map(name => {
+    const info = metadata[name]||{};
+    const isMy = name === MY_HOSP;
+    return `<div class="admin-hosp-row">
+      <span class="admin-hosp-name ${isMy?'my':''}">${name}${isMy?' ★':''}</span>
+      <span class="admin-hosp-meta">
+        ${info.count?info.count.toLocaleString()+'건':'미수집'}<br>
+        ${info.updated||'—'}
+      </span>
+      <button class="admin-run-btn" onclick="triggerUpdate('${escJs(name)}')" ${!token?'disabled':''}>
+        업데이트
+      </button>
+    </div>`;
+  }).join('');
+
+  document.getElementById('adminBody').innerHTML = `
+    ${!isConfigured ? `<div class="admin-notice">
+      ⚠ <b>로컬 환경</b>에서는 GitHub 연동이 필요하지 않습니다.<br>
+      GitHub 배포 후 <b>index.html 상단의 GITHUB_OWNER, GITHUB_REPO</b>를 본인 계정으로 수정하면 웹에서 업데이트 가능합니다.
+    </div>` : ''}
+
+    <div class="admin-section-title">GitHub Personal Access Token</div>
+    <div class="admin-token-row">
+      <input class="admin-token-input" id="adminTokenInput" type="password"
+             placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+             value="${token}">
+      <button class="admin-token-save" onclick="saveToken()">저장</button>
+    </div>
+    <div class="admin-token-hint">
+      토큰이 없다면: <a href="https://github.com/settings/tokens/new?scopes=repo,workflow" target="_blank">GitHub → Settings → Tokens (classic)</a><br>
+      권한 체크: <b>repo</b> ✅ &nbsp; <b>workflow</b> ✅ &nbsp; → Generate token → 복사 후 위에 붙여넣기<br>
+      입력한 토큰은 이 브라우저에만 임시 저장됩니다 (세션 종료 시 삭제).
+    </div>
+
+    <div class="admin-section-title">병원별 업데이트</div>
+    <div class="admin-hosp-grid">${hospRows}</div>
+    <button class="admin-run-all" onclick="triggerUpdate('')" ${!token?'disabled':''}>
+      🔄 전체 병원 업데이트 (${sorted.length}개)
+    </button>
+    <div class="admin-status-log" id="adminLog">업데이트 버튼을 클릭하면 GitHub Actions가 실행됩니다.</div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+      <div class="admin-section-title">관리자 비밀번호 변경</div>
+      <div class="admin-token-row">
+        <input class="admin-token-input" id="newPwInput" type="password"
+               placeholder="새 비밀번호 입력" style="letter-spacing:2px;">
+        <input class="admin-token-input" id="newPwConfirm" type="password"
+               placeholder="새 비밀번호 확인" style="letter-spacing:2px;">
+        <button class="admin-token-save" onclick="changeAdminPw()">변경</button>
+      </div>
+      <div class="admin-token-hint" style="color:#94A3B8;">
+        변경한 비밀번호는 이 브라우저에 저장됩니다. 분실 시 기본값(<b>${ADMIN_PW}</b>)으로 초기화됩니다.
+        <span style="cursor:pointer;color:var(--blue);" onclick="resetAdminPw()">초기화</span>
+      </div>
+    </div>
+  `;
+}
+
+function saveToken() {
+  const val = document.getElementById('adminTokenInput')?.value?.trim();
+  if (!val) { addLog('❌ 토큰을 입력해주세요.', 'err'); return; }
+  sessionStorage.setItem('gh_token', val);
+  addLog('✅ 토큰이 저장되었습니다.', 'ok');
+  renderAdminPanel();
+}
+
+async function triggerUpdate(hospital) {
+  const token = sessionStorage.getItem('gh_token');
+  if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
+  if (GITHUB_OWNER === '여기에_깃허브_계정명') {
+    addLog('❌ index.html 상단의 GITHUB_OWNER, GITHUB_REPO를 먼저 설정해주세요.', 'err'); return;
+  }
+
+  const label = hospital || '전체 병원';
+  addLog(`⏳ ${label} 업데이트 요청 중...`, 'run');
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update.yml/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json'
+        },
+        body: JSON.stringify({
+          ref: 'main',
+          inputs: { hospital: hospital }
+        })
+      }
+    );
+
+    if (res.status === 204) {
+      addLog(`✅ ${label} 업데이트 요청 성공!`, 'ok');
+      addLog(`📋 GitHub Actions 탭에서 진행 상황을 확인하세요.`, 'run');
+      addLog(`⏱ 완료까지 약 10~30분 소요됩니다.`, 'run');
+    } else if (res.status === 401) {
+      addLog('❌ 토큰 인증 실패. 토큰을 다시 확인해주세요.', 'err');
+    } else if (res.status === 422) {
+      addLog('❌ 워크플로 파일(.github/workflows/update.yml)이 없거나 브랜치 이름이 다릅니다.', 'err');
+    } else {
+      addLog(`❌ 오류 발생 (HTTP ${res.status})`, 'err');
+    }
+  } catch (e) {
+    addLog(`❌ 네트워크 오류: ${e.message}`, 'err');
+  }
+}
+
+function changeAdminPw() {
+  const n1 = document.getElementById('newPwInput')?.value?.trim();
+  const n2 = document.getElementById('newPwConfirm')?.value?.trim();
+  if (!n1)           { addLog('❌ 새 비밀번호를 입력해주세요.', 'err'); return; }
+  if (n1.length < 4) { addLog('❌ 비밀번호는 4자 이상이어야 합니다.', 'err'); return; }
+  if (n1 !== n2)     { addLog('❌ 비밀번호가 일치하지 않습니다.', 'err'); return; }
+  localStorage.setItem('admin_pw', n1);
+  addLog(`✅ 비밀번호가 변경되었습니다.`, 'ok');
+  document.getElementById('newPwInput').value  = '';
+  document.getElementById('newPwConfirm').value = '';
+}
+
+function resetAdminPw() {
+  if (!confirm(`비밀번호를 기본값(${ADMIN_PW})으로 초기화하시겠습니까?`)) return;
+  localStorage.removeItem('admin_pw');
+  addLog(`✅ 비밀번호가 기본값으로 초기화되었습니다.`, 'ok');
+}
+
+function addLog(msg, type='') {
+  const log = document.getElementById('adminLog');
+  if (!log) return;
+  const cls = type==='ok'?'log-ok':type==='err'?'log-err':type==='run'?'log-run':'';
+  const time = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  log.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
+  log.scrollTop = log.scrollHeight;
+}
 </script>
+<!-- ══ 관리자 패널 모달 ══════════════════════ -->
+<div id="adminOverlay" class="admin-overlay" style="display:none;" onclick="if(event.target===this)closeAdminPanel()">
+  <div class="admin-modal" onclick="event.stopPropagation()">
+    <div class="admin-modal-head">
+      <h2 id="adminTitle">🔒 관리자 패널</h2>
+      <button class="admin-close" onclick="closeAdminPanel()">×</button>
+    </div>
+    <div class="admin-modal-body" id="adminBody">
+      <!-- 비밀번호 입력 화면 -->
+      <div class="admin-pw-wrap">
+        <p>관리자 비밀번호를 입력하세요.</p>
+        <input class="admin-pw-input" id="adminPwInput" type="password"
+               placeholder="••••••••"
+               onkeydown="if(event.key==='Enter')checkAdminPw()">
+        <button class="admin-pw-btn" onclick="checkAdminPw()">확인</button>
+        <div class="admin-pw-err" id="adminPwErr"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
