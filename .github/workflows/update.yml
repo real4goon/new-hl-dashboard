@@ -1,0 +1,79 @@
+name: 비급여 데이터 수집 및 배포
+
+on:
+  # ① 수동 실행 (GitHub 사이트에서 버튼 클릭)
+  workflow_dispatch:
+    inputs:
+      hospital:
+        description: '수집할 병원 (비워두면 전체 수집)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - 한림성심병원
+          - 서울대병원
+          - 삼성서울병원
+          - 서울아산병원
+          - 세브란스병원
+          - 강남세브란스
+          - 서울성모병원
+          - 고대안암병원
+          - 고대구로병원
+          - 경희대병원
+          - 한양대병원
+          - 중앙대병원
+          - 목동병원
+          - 강북삼성병원
+          - 아주대병원
+          - 분당서울대병원
+          - 길병원
+          - 인하대병원
+          - 고대안산병원
+          - 부천성모병원
+          - 의정부성모병원
+          - 성빈센트병원
+          - 인천성모병원
+          - 국립암센터
+
+  # ② 자동 실행 (매주 월요일 오전 10시 KST)
+  schedule:
+    - cron: '0 1 * * 1'
+
+jobs:
+  collect-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install requests
+
+      - name: 데이터 수집
+        run: |
+          if [ -n "${{ github.event.inputs.hospital }}" ]; then
+            echo "선택 병원 수집: ${{ github.event.inputs.hospital }}"
+            python collect_data.py --hospital "${{ github.event.inputs.hospital }}"
+          else
+            echo "전체 병원 수집"
+            python collect_data.py --force
+          fi
+
+      - name: 변경사항 커밋 및 푸시
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "데이터 업데이트: $(date '+%Y-%m-%d %H:%M') KST"
+          git push
