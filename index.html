@@ -31,7 +31,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 /* 사이드바 */
 .sidebar{
-  width:260px;flex-shrink:0;
+  width:280px;flex-shrink:0;
   background:var(--navy);
   display:flex;flex-direction:column;
   position:sticky;top:0;height:100vh;overflow-y:auto;
@@ -53,7 +53,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .h-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,0.14);transition:background .15s;}
 .hi.on .h-dot{background:var(--cyan);}
 .hi.my.on .h-dot{background:var(--pink);}
-.h-name{font-size:12.5px;color:rgba(255,255,255,0.42);flex:1;font-weight:500;transition:color .15s;}
+.h-name{font-size:12px;color:rgba(255,255,255,0.42);flex:1;font-weight:500;transition:color .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
 .hi.on .h-name{color:rgba(255,255,255,0.9);}
 .hi.my .h-name{color:rgba(255,255,255,0.6);}
 .hi.my.on .h-name{color:#FFAAB5;font-weight:700;}
@@ -213,11 +213,12 @@ tbody tr{cursor:pointer;}
 tbody tr:hover td{filter:brightness(.96);}
 tbody tr.row-exp td{box-shadow:inset 0 0 0 2px var(--cyan);}
 tbody td{padding:8px 11px;border-bottom:1px solid #EEF2F7;border-right:1px solid #EEF2F7;text-align:center;vertical-align:middle;}
-tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-size:12.5px;position:sticky;left:0;z-index:5;border-right:2px solid var(--border);min-width:210px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-size:12.5px;position:sticky;left:0;z-index:5;border-right:2px solid var(--border);min-width:210px;max-width:240px;white-space:normal;word-break:keep-all;line-height:1.5;}
+.item-name{display:block;word-break:keep-all;}
+.edi-tag{display:block;font-size:10.5px;color:#94A3B8;font-weight:400;margin-top:3px;letter-spacing:0.2px;}
 .pc{font-weight:700;font-size:13px;}
 .my-c{outline:2px solid var(--pink);outline-offset:-2px;}
 .nd{color:#CBD5E1;font-size:11px;}
-.edi-tag{font-size:10px;color:#94A3B8;font-weight:400;margin-left:4px;}
 
 /* 인라인 차트 행 */
 .chart-row td{background:#F6FAFF!important;filter:none!important;padding:18px 22px!important;cursor:default;}
@@ -418,7 +419,7 @@ const MAX_ROWS = 80;
 // ── 관리자 설정 (GitHub 배포 후 본인 정보로 수정) ──
 const GITHUB_OWNER = "real4goon";   // 예: "real4goon"
 const GITHUB_REPO  = "new-hl-dashboard";    // 예: "nhs-dashboard"
-const ADMIN_PW     = "kimgoon4!!";             // 관리자 비밀번호 (자유롭게 변경)
+const ADMIN_PW     = "hallym2026";             // 관리자 비밀번호 (자유롭게 변경)
 
 /* ══════════════════════════════════════════════
    상태
@@ -800,7 +801,10 @@ function renderTable() {
       const cmap    = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.price).sort((a,b)=>a-b));
 
       html+=`<tr data-name="${escH(name)}" onclick="toggleInlineChart(this)">
-        <td title="${escH(name)}">${escH(truncate(name,33))}<span class="edi-tag">${escH(ediCode)}</span></td>`;
+        <td title="${escH(name)}">
+          <span class="item-name">${escH(name)}</span>
+          <span class="edi-tag">EDI: ${escH(ediCode)}</span>
+        </td>`;
       priceArr.forEach((d,i)=>{
         const isMy=selectedHosps[i]===MY_HOSP;
         if(d===null) html+=`<td class="${isMy?'my-c':''}"><span class="nd">—</span></td>`;
