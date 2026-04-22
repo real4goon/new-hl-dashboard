@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>비급여 비교 대시보드 V5.2</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════
+   기본 / 변수
+══════════════════════════════════════════════ */
+:root{
+  --navy:#0F2744; --navy2:#1a3a5c;
+  --blue:#2E86C1; --cyan:#41B6E6;
+  --pink:#E8445A; --pink2:#C93349;
+  --green:#1a7a4a;
+  --bg:#EEF2F7; --card:#fff;
+  --border:#D8E3EF; --text:#1E293B;
+  --muted:#64748B; --light:#F1F6FC;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ══════════════════════════════════════════════
+   SIDEBAR 레이아웃
+══════════════════════════════════════════════ */
+.layout-sidebar{display:flex;min-height:100vh;}
+
+/* 사이드바 */
+.sidebar{
+  width:260px;flex-shrink:0;
+  background:var(--navy);
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.sb-logo{padding:22px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.sb-logo h1{font-size:14.5px;font-weight:900;color:#fff;line-height:1.45;}
+.sb-logo p{font-size:11px;color:rgba(255,255,255,0.38);margin-top:3px;}
+.sb-section{padding:14px 14px 6px;}
+.sb-section-title{font-size:10px;font-weight:700;color:rgba(255,255,255,0.28);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:9px;padding:0 6px;}
+.sb-row{display:flex;gap:6px;padding:0 6px;margin-bottom:9px;}
+.sb-row button{flex:1;padding:5px;border:1px solid rgba(255,255,255,0.13);background:transparent;color:rgba(255,255,255,0.38);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s;}
+.sb-row button:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.65);}
+.hosp-list-sb{display:flex;flex-direction:column;gap:2px;}
+.hi{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .15s;user-select:none;}
+.hi:hover{background:rgba(255,255,255,0.06);}
+.hi.on{background:rgba(65,182,230,0.16);}
+.hi.my.on{background:rgba(232,68,90,0.19);}
+.hi input{display:none;}
+.h-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,0.14);transition:background .15s;}
+.hi.on .h-dot{background:var(--cyan);}
+.hi.my.on .h-dot{background:var(--pink);}
+.h-name{font-size:12.5px;color:rgba(255,255,255,0.42);flex:1;font-weight:500;transition:color .15s;}
+.hi.on .h-name{color:rgba(255,255,255,0.9);}
+.hi.my .h-name{color:rgba(255,255,255,0.6);}
+.hi.my.on .h-name{color:#FFAAB5;font-weight:700;}
+.h-cnt{font-size:10px;color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);padding:1px 6px;border-radius:10px;}
+.hi.on .h-cnt{color:rgba(255,255,255,0.42);background:rgba(255,255,255,0.09);}
+.load-btn-sb{margin:10px 14px 4px;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;text-align:center;}
+.load-btn-sb:hover:not(:disabled){background:#2471A3;}
+.load-btn-sb:disabled{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.22);cursor:not-allowed;}
+.sb-status{padding:7px 14px 12px;font-size:11px;color:rgba(255,255,255,0.28);line-height:1.6;}
+
+/* 메인 (sidebar 레이아웃) */
+.main-sb{flex:1;display:flex;flex-direction:column;min-width:0;}
+
+/* ══════════════════════════════════════════════
+   TOPBAR 레이아웃
+══════════════════════════════════════════════ */
+.layout-top{display:flex;flex-direction:column;min-height:100vh;}
+.layout-top .main-top{flex:1;display:flex;flex-direction:column;}
+
+/* 병원 가로 스트립 */
+.hosp-strip{
+  background:var(--navy);
+  padding:14px 24px 12px;
+  border-bottom:1px solid rgba(255,255,255,0.1);
+}
+.hosp-strip-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.hosp-strip-title{font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:.8px;text-transform:uppercase;}
+.strip-actions{display:flex;gap:10px;align-items:center;}
+.strip-btn{padding:4px 12px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.5);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s;}
+.strip-btn:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.75);}
+.load-btn-top{padding:7px 18px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;}
+.load-btn-top:hover:not(:disabled){background:#2471A3;}
+.load-btn-top:disabled{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.25);cursor:not-allowed;}
+.hosp-chips-wrap{display:flex;flex-wrap:wrap;gap:6px;}
+.hc{display:flex;align-items:center;gap:6px;padding:5px 12px;border:1.5px solid rgba(255,255,255,0.15);border-radius:20px;cursor:pointer;user-select:none;transition:.15s;}
+.hc:hover{border-color:rgba(255,255,255,0.35);}
+.hc.on{border-color:var(--cyan);background:rgba(65,182,230,0.15);}
+.hc.my.on{border-color:var(--pink);background:rgba(232,68,90,0.15);}
+.hc input{display:none;}
+.hc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;background:rgba(255,255,255,0.2);}
+.hc.on .hc-dot{background:var(--cyan);}
+.hc.my.on .hc-dot{background:var(--pink);}
+.hc-name{font-size:12px;color:rgba(255,255,255,0.5);font-weight:500;transition:color .15s;}
+.hc.on .hc-name{color:rgba(255,255,255,0.9);}
+.hc.my.on .hc-name{color:#FFAAB5;font-weight:700;}
+.hc-cnt{font-size:10px;color:rgba(255,255,255,0.25);}
+.strip-status{font-size:11px;color:rgba(255,255,255,0.3);padding-top:8px;}
+
+/* ══════════════════════════════════════════════
+   공통 - 탑바
+══════════════════════════════════════════════ */
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+.topbar-left{flex:1;}
+.topbar-title{font-size:15px;font-weight:700;color:var(--navy);}
+.topbar-meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.data-badge{background:var(--light);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-size:12px;color:var(--blue);font-weight:700;white-space:nowrap;}
+.layout-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.lt-btn{padding:6px 12px;border:none;background:transparent;cursor:pointer;font-size:12px;color:var(--muted);font-family:inherit;transition:.15s;display:flex;align-items:center;gap:4px;}
+.lt-btn:hover{background:var(--light);}
+.lt-btn.active{background:var(--navy);color:#fff;font-weight:700;}
+
+/* ══════════════════════════════════════════════
+   콘텐츠 영역
+══════════════════════════════════════════════ */
+.content{padding:20px 24px;flex:1;}
+
+/* ══════════════════════════════════════════════
+   검색 카드
+══════════════════════════════════════════════ */
+.search-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.04);}
+.search-card-title{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.4px;margin-bottom:11px;}
+.search-row{display:flex;gap:10px;align-items:center;}
+.search-wrap{flex:1;position:relative;}
+.search-input{width:100%;padding:10px 16px;border:2px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;outline:none;transition:border .2s;background:var(--light);}
+.search-input:focus{border-color:var(--cyan);background:#fff;}
+.search-input:disabled{opacity:.45;cursor:not-allowed;}
+
+/* 드롭다운 */
+.dropdown{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;
+  background:#fff;border:1px solid var(--border);
+  border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.13);
+  z-index:400;display:none;flex-direction:column;max-height:360px;
+}
+.dropdown.open{display:flex;}
+.dd-head{padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--light);flex-shrink:0;border-radius:10px 10px 0 0;}
+.dd-head span{font-size:11.5px;color:var(--muted);}
+.dd-sa{font-size:11.5px;color:var(--blue);cursor:pointer;font-weight:700;background:none;border:none;font-family:inherit;padding:0;}
+.dd-sa:hover{text-decoration:underline;}
+.dd-list{overflow-y:auto;flex:1;}
+.ddi{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;font-size:13px;border-bottom:1px solid #F5F7FA;user-select:none;}
+.ddi:hover{background:var(--light);}
+.ddi.sel{background:#EFF9FF;}
+.ddi input{accent-color:var(--blue);width:15px;height:15px;flex-shrink:0;pointer-events:none;}
+.ddi-name{flex:1;}
+.ddi-edi{font-size:11px;color:var(--muted);}
+.dd-foot{padding:8px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--light);flex-shrink:0;border-radius:0 0 10px 10px;}
+.dd-cnt{font-size:11.5px;color:var(--muted);}
+.dd-ok{padding:6px 18px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.dd-ok:hover{background:#2471A3;}
+
+/* 칩 */
+.sel-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.chip{display:flex;align-items:center;gap:5px;background:#EFF9FF;border:1px solid #B8E4F9;padding:4px 10px;border-radius:20px;font-size:12px;color:var(--blue);}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.chip-del{cursor:pointer;color:#94A3B8;flex-shrink:0;font-size:14px;line-height:1;}
+.chip-del:hover{color:var(--pink);}
+.chip-clear{background:#F1F5F9;border-color:#CBD5E1;color:var(--muted);cursor:pointer;}
+.chip-clear:hover{background:#FFE4E8;border-color:var(--pink);color:var(--pink);}
+
+/* 버튼 */
+.btn{padding:10px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-excel{background:var(--green);color:#fff;}
+.btn-excel:not(:disabled):hover{background:#145a37;}
+
+/* ══════════════════════════════════════════════
+   결과 카드
+══════════════════════════════════════════════ */
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden;}
+
+/* 결과 헤더 */
+.res-header{padding:11px 20px;background:var(--light);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.st{display:flex;align-items:center;gap:5px;}
+.st-l{font-size:11.5px;color:var(--muted);}
+.st-v{font-size:13px;font-weight:700;}
+.st-sep{width:1px;height:15px;background:var(--border);}
+
+/* 탭 */
+.tab-row{padding:0 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;background:#fff;}
+.tab-btn{padding:10px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);font-family:inherit;transition:.15s;border-bottom:2.5px solid transparent;margin-bottom:-1px;}
+.tab-btn:hover{color:var(--navy);}
+.tab-btn.active{color:var(--blue);font-weight:700;border-bottom-color:var(--blue);}
+
+/* 범례 */
+.legend-row{padding:8px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;}
+.leg{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);}
+.leg-sq{width:13px;height:13px;border-radius:3px;flex-shrink:0;}
+.leg-hint{margin-left:auto;font-size:11px;color:#94A3B8;}
+
+/* 테이블 */
+.table-wrap{overflow:auto;max-height:60vh;}
+table{border-collapse:collapse;font-size:13px;width:100%;}
+thead th{background:#F4F7FB;padding:9px 11px;border-bottom:2px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:10;text-align:center;font-size:12px;color:var(--navy);}
+thead th:first-child{text-align:left;min-width:210px;max-width:240px;position:sticky;left:0;z-index:20;background:#EBF1FA;}
+thead th.my-col{background:#FFF0F3;color:var(--pink2);}
+tbody tr{cursor:pointer;}
+tbody tr:hover td{filter:brightness(.96);}
+tbody tr.row-exp td{box-shadow:inset 0 0 0 2px var(--cyan);}
+tbody td{padding:8px 11px;border-bottom:1px solid #EEF2F7;border-right:1px solid #EEF2F7;text-align:center;vertical-align:middle;}
+tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-size:12.5px;position:sticky;left:0;z-index:5;border-right:2px solid var(--border);min-width:210px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc{font-weight:700;font-size:13px;}
+.my-c{outline:2px solid var(--pink);outline-offset:-2px;}
+.nd{color:#CBD5E1;font-size:11px;}
+.edi-tag{font-size:10px;color:#94A3B8;font-weight:400;margin-left:4px;}
+
+/* 인라인 차트 행 */
+.chart-row td{background:#F6FAFF!important;filter:none!important;padding:18px 22px!important;cursor:default;}
+.ci{display:flex;gap:20px;align-items:flex-start;}
+.ci-canvas{flex:1;position:relative;}
+.ci-side{width:195px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:10px;padding:13px;}
+.ci-side h4{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--border);word-break:keep-all;line-height:1.4;}
+.ss{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px dashed #F1F5F9;}
+.ss:last-of-type{border:none;margin-bottom:9px;}
+.ss-l{color:var(--muted);}
+.ss-v{font-weight:700;}
+.rk-t{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+.ri{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #F5F7FA;}
+.rn{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;}
+.ri-name{font-size:11.5px;flex:1;}
+.ri-price{font-size:11px;color:var(--muted);}
+
+/* 차트 탭 - 그리드 차트 */
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:20px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;overflow:hidden;}
+.chart-card-title{font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chart-card-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.chart-card canvas{display:block;}
+
+/* 빈 상태 */
+.empty{text-align:center;padding:55px 20px;color:#94A3B8;}
+.empty-icon{font-size:38px;margin-bottom:12px;}
+.empty-text{font-size:14px;line-height:1.9;}
+
+/* 푸터 */
+.footer{margin-top:28px;padding:18px 24px;text-align:center;border-top:1px solid var(--border);background:var(--card);font-size:12px;color:var(--muted);line-height:1.9;}
+.footer a{color:var(--cyan);text-decoration:none;}
+.footer strong{color:var(--navy);}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR 레이아웃 ══════════════════════ -->
+<div id="layoutSidebar" class="layout-sidebar">
+
+  <!-- 사이드바 -->
+  <aside class="sidebar" id="sidebarEl">
+    <div class="sb-logo">
+      <h1>📊 비급여 통합 비교<br>대시보드</h1>
+      <p>서울·경기 상급종합병원 V5.2</p>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-title">비교 병원 선택</div>
+      <div class="sb-row">
+        <button onclick="selectAll('sb',true)">전체 선택</button>
+        <button onclick="selectAll('sb',false)">전체 해제</button>
+      </div>
+      <div id="hospListSb" class="hosp-list-sb"></div>
+    </div>
+    <button class="load-btn-sb" id="loadBtnSb" onclick="loadSelectedData()">🚀 선택 병원 데이터 로드</button>
+    <div class="sidebar-status sb-status" id="sbStatus"></div>
+  </aside>
+
+  <!-- 메인 (사이드바 모드) -->
+  <div class="main-sb">
+    <!-- 탑바 -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">상급종합병원 비급여 단가 비교</div>
+        <div class="topbar-meta" id="topMeta">병원을 선택하고 데이터를 로드해주세요.</div>
+      </div>
+      <div class="topbar-right">
+        <div class="data-badge" id="dataBadge">데이터 로딩 중...</div>
+        <div class="layout-toggle">
+          <button class="lt-btn active" id="ltSb" onclick="setLayout('sidebar')">☰ 목록</button>
+          <button class="lt-btn"        id="ltTop" onclick="setLayout('top')">▤ 상단</button>
+        </div>
+      </div>
+    </div>
+    <!-- 콘텐츠 -->
+    <div class="content" id="contentSb">
+      <div id="searchCardSb"></div>
+      <div class="result-card"><div id="resultAreaSb" class="empty"><div class="empty-icon">🏥</div><div class="empty-text">좌측에서 병원을 선택하고<br><b>[데이터 로드]</b> 버튼을 눌러주세요.</div></div></div>
+    </div>
+    <!-- 푸터 -->
+    <div class="footer">
+      <strong>한림대학교성심병원 원무팀 김영선 대리</strong> 작성 &nbsp;|&nbsp;
+      문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a><br>
+      <span style="font-size:11px;">데이터 출처: 건강보험심사평가원 비급여 진료비 공개 API</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOPBAR 레이아웃 ═══════════════════════ -->
+<div id="layoutTop" class="layout-top" style="display:none;">
+
+  <!-- 병원 스트립 -->
+  <div class="hosp-strip">
+    <div class="hosp-strip-header">
+      <span class="hosp-strip-title">비교 병원 선택</span>
+      <div class="strip-actions">
+        <button class="strip-btn" onclick="selectAll('top',true)">전체 선택</button>
+        <button class="strip-btn" onclick="selectAll('top',false)">전체 해제</button>
+        <button class="load-btn-top" id="loadBtnTop" onclick="loadSelectedData()">🚀 데이터 로드</button>
+      </div>
+    </div>
+    <div id="hospChipsTop" class="hosp-chips-wrap"></div>
+    <div class="strip-status" id="topStatus"></div>
+  </div>
+
+  <div class="main-top">
+    <!-- 탑바 -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">상급종합병원 비급여 단가 비교</div>
+        <div class="topbar-meta" id="topMeta2">병원을 선택하고 데이터를 로드해주세요.</div>
+      </div>
+      <div class="topbar-right">
+        <div class="data-badge" id="dataBadge2">데이터 로딩 중...</div>
+        <div class="layout-toggle">
+          <button class="lt-btn"        id="ltSb2"  onclick="setLayout('sidebar')">☰ 목록</button>
+          <button class="lt-btn active" id="ltTop2" onclick="setLayout('top')">▤ 상단</button>
+        </div>
+      </div>
+    </div>
+    <!-- 콘텐츠 -->
+    <div class="content" id="contentTop">
+      <div id="searchCardTop"></div>
+      <div class="result-card"><div id="resultAreaTop" class="empty"><div class="empty-icon">🏥</div><div class="empty-text">위에서 병원을 선택하고<br><b>[데이터 로드]</b> 버튼을 눌러주세요.</div></div></div>
+    </div>
+    <!-- 푸터 -->
+    <div class="footer">
+      <strong>한림대학교성심병원 원무팀 김영선 대리</strong> 작성 &nbsp;|&nbsp;
+      문의: <a href="mailto:4goon@hallym.or.kr">4goon@hallym.or.kr</a><br>
+      <span style="font-size:11px;">데이터 출처: 건강보험심사평가원 비급여 진료비 공개 API</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   설정
+══════════════════════════════════════════════ */
+const MY_HOSP  = "한림성심병원";
+const DATA_DIR = "data/";
+const MAX_ROWS = 80;
+
+/* ══════════════════════════════════════════════
+   상태
+══════════════════════════════════════════════ */
+let metadata      = {};
+let loadedData    = [];
+let fuse          = null;
+let allItems      = [];
+let selectedNames = new Set();
+let ddItems       = [];
+let ddSelected    = new Set();
+let expandedItem  = null;
+let activeCharts  = {};          // key: canvasId → Chart
+let selectedHosps = [];
+let currentLayout = 'sidebar';   // 'sidebar' | 'top'
+let currentTab    = 'table';     // 'table' | 'chart'
+
+/* ══════════════════════════════════════════════
+   초기화
+══════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadMetadata();
+  buildSearchCards();
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap')) closeDropdown();
+  });
+});
+
+/* ══════════════════════════════════════════════
+   레이아웃 토글
+══════════════════════════════════════════════ */
+function setLayout(mode) {
+  currentLayout = mode;
+  document.getElementById('layoutSidebar').style.display = mode === 'sidebar' ? 'flex'  : 'none';
+  document.getElementById('layoutTop')    .style.display = mode === 'top'     ? 'flex'  : 'none';
+  // 활성 버튼 스타일
+  ['ltSb','ltTop','ltSb2','ltTop2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('active',
+      (id.startsWith('ltSb') && mode==='sidebar') ||
+      (id.startsWith('ltTop') && mode==='top'));
+  });
+  // 검색 카드 재렌더
+  buildSearchCards();
+  // 로드된 데이터 있으면 결과도 재렌더
+  if (selectedNames.size > 0) renderTable();
+}
+
+/* ══════════════════════════════════════════════
+   메타데이터 로드
+══════════════════════════════════════════════ */
+async function loadMetadata() {
+  try {
+    const r = await fetch(DATA_DIR + 'metadata.json');
+    if (!r.ok) throw new Error();
+    metadata = await r.json();
+    const dates = Object.values(metadata).map(m => m.updated).filter(Boolean).sort().reverse();
+    const badge = dates.length ? `최근 수집: ${dates[0]}` : '수집 데이터 있음';
+    ['dataBadge','dataBadge2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = badge;
+    });
+    renderHospLists();
+  } catch {
+    const err = `<div style="padding:10px 6px;color:#F87171;font-size:12px;line-height:1.9;">⚠ data/metadata.json 없음<br>1. python collect_data.py<br>2. python -m http.server 8000</div>`;
+    document.getElementById('hospListSb').innerHTML = err;
+    ['dataBadge','dataBadge2'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='데이터 없음'; });
+  }
+}
+
+function sortedHospNames() {
+  const names = Object.keys(metadata);
+  return [ ...names.filter(n => n===MY_HOSP), ...names.filter(n => n!==MY_HOSP) ];
+}
+
+const DEFAULT_ON = new Set([MY_HOSP,"서울대병원","삼성서울병원","서울아산병원","세브란스병원"]);
+
+function renderHospLists() {
+  const sorted = sortedHospNames();
+
+  // 사이드바 목록
+  document.getElementById('hospListSb').innerHTML = sorted.map(name => {
+    const info = metadata[name]||{};
+    const isMy = name===MY_HOSP, isOn = DEFAULT_ON.has(name);
+    return `<label class="hi ${isMy?'my':''} ${isOn?'on':''}" onclick="toggleHi(this,'sb')">
+      <input type="checkbox" value="${name}" ${isOn?'checked':''}>
+      <span class="h-dot"></span>
+      <span class="h-name">${name}${isMy?' ★':''}</span>
+      <span class="h-cnt">${(info.count||0).toLocaleString()}</span>
+    </label>`;
+  }).join('');
+
+  // 상단 칩 목록
+  document.getElementById('hospChipsTop').innerHTML = sorted.map(name => {
+    const info = metadata[name]||{};
+    const isMy = name===MY_HOSP, isOn = DEFAULT_ON.has(name);
+    return `<label class="hc ${isMy?'my':''} ${isOn?'on':''}" onclick="toggleHi(this,'top')">
+      <input type="checkbox" value="${name}" ${isOn?'checked':''}>
+      <span class="hc-dot"></span>
+      <span class="hc-name">${name}${isMy?' ★':''}</span>
+      <span class="hc-cnt">${(info.count||0).toLocaleString()}</span>
+    </label>`;
+  }).join('');
+}
+
+function toggleHi(label, mode) {
+  const cb = label.querySelector('input');
+  cb.checked = !cb.checked;
+  label.classList.toggle('on', cb.checked);
+  // 반대 레이아웃도 동기화
+  const other = mode==='sb' ? 'top' : 'sb';
+  const val   = cb.value;
+  const otherLabel = document.querySelector(
+    `#${other==='top'?'hospChipsTop':'hospListSb'} [value="${CSS.escape(val)}"]`
+  )?.closest('label');
+  if (otherLabel) {
+    otherLabel.querySelector('input').checked = cb.checked;
+    otherLabel.classList.toggle('on', cb.checked);
+  }
+}
+function selectAll(mode, v) {
+  const sbSel  = document.querySelectorAll('#hospListSb .hi input');
+  const topSel = document.querySelectorAll('#hospChipsTop .hc input');
+  sbSel .forEach(cb => { cb.checked=v; cb.closest('label').classList.toggle('on',v); });
+  topSel.forEach(cb => { cb.checked=v; cb.closest('label').classList.toggle('on',v); });
+}
+function getCheckedHosps() {
+  const cbs = document.querySelectorAll('#hospListSb .hi input:checked, #hospChipsTop .hc input:checked');
+  return [...new Set([...cbs].map(c => c.value))];
+}
+
+/* ══════════════════════════════════════════════
+   검색 카드 빌드
+══════════════════════════════════════════════ */
+function buildSearchCards() {
+  const html = `
+    <div class="search-card">
+      <div class="search-card-title">🔍 비급여 항목 검색 — 검색어 입력 후 항목 선택 → [이 항목들 비교] 클릭</div>
+      <div class="search-row">
+        <div class="search-wrap">
+          <input class="search-input" id="searchInput"
+                 placeholder="항목명 또는 EDI코드 입력 (예: MRI, 초음파, 상급병실)"
+                 autocomplete="off" ${loadedData.length?'':'disabled'}
+                 oninput="onSearchInput(event)" onclick="event.stopPropagation()">
+          <div class="dropdown" id="dropdown">
+            <div class="dd-head" onclick="event.stopPropagation()">
+              <span id="ddCount">0개 항목</span>
+              <button class="dd-sa" id="ddSaBtn" onclick="event.stopPropagation();ddSelectAll()">전체 선택</button>
+            </div>
+            <div class="dd-list" id="ddList" onclick="event.stopPropagation()"></div>
+            <div class="dd-foot" onclick="event.stopPropagation()">
+              <span class="dd-cnt" id="ddSelCnt">0개 선택됨</span>
+              <button class="dd-ok" onclick="event.stopPropagation();confirmSelection()">✔ 이 항목들 비교</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-excel" id="excelBtn" onclick="exportExcel()"
+          ${selectedNames.size?'':'disabled'} style="${selectedNames.size?'':'display:none'}">📊 엑셀 저장</button>
+      </div>
+      <div class="sel-chips" id="selectedChips"></div>
+    </div>`;
+
+  if (currentLayout==='sidebar') {
+    document.getElementById('searchCardSb').innerHTML = html;
+  } else {
+    document.getElementById('searchCardTop').innerHTML = html;
+  }
+  renderChips();
+}
+
+/* ══════════════════════════════════════════════
+   데이터 로드
+══════════════════════════════════════════════ */
+async function loadSelectedData() {
+  const checked = getCheckedHosps();
+  if (!checked.length) { alert('병원을 선택해주세요.'); return; }
+
+  ['loadBtnSb','loadBtnTop'].forEach(id => {
+    const el=document.getElementById(id); if(el) el.disabled=true;
+  });
+  const setStatus = t => {
+    ['sbStatus','topStatus'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=t; });
+  };
+
+  loadedData = []; selectedNames.clear(); renderChips(); resetResult();
+  setStatus('로딩 중...');
+
+  for (let i=0; i<checked.length; i++) {
+    const name = checked[i];
+    setStatus(`[${i+1}/${checked.length}] ${name}...`);
+    try {
+      const info = metadata[name]; if (!info) continue;
+      const r = await fetch(DATA_DIR + info.filename);
+      if (!r.ok) throw new Error();
+      loadedData.push(...await r.json());
+    } catch { console.warn(`${name} 로드 실패`); }
+  }
+
+  selectedHosps = [
+    ...checked.filter(n => n===MY_HOSP),
+    ...checked.filter(n => n!==MY_HOSP)
+  ];
+
+  if (!loadedData.length) {
+    setStatus('❌ 데이터 없음. collect_data.py 먼저 실행하세요.');
+    ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
+    return;
+  }
+
+  const seen = new Map();
+  loadedData.forEach(d => { if (!seen.has(d.itemName)) seen.set(d.itemName, d.ediCode); });
+  allItems = [...seen.entries()].map(([n,e])=>({name:n,ediCode:e})).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  fuse = new Fuse(allItems, {keys:['name','ediCode'],threshold:.35,minMatchCharLength:1});
+
+  const msg = `✅ ${loadedData.length.toLocaleString()}건 / ${allItems.length.toLocaleString()}개 항목`;
+  setStatus(msg);
+  ['topMeta','topMeta2'].forEach(id => {
+    const el=document.getElementById(id);
+    if(el) el.textContent=`${selectedHosps.length}개 병원 로드 완료 · ${allItems.length.toLocaleString()}개 항목`;
+  });
+
+  ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
+
+  buildSearchCards();
+  getResultArea().innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">✅</div>
+      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!<br>위 검색창에서 항목명을 입력 후 선택해주세요.</div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════
+   검색 드롭다운
+══════════════════════════════════════════════ */
+function onSearchInput(e) {
+  e.stopPropagation();
+  const kw = document.getElementById('searchInput').value.trim();
+  if (!kw) { closeDropdown(); return; }
+  ddItems = fuse ? fuse.search(kw,{limit:60}).map(r=>r.item) : allItems.slice(0,60);
+  renderDropdown();
+  openDropdown();
+}
+function renderDropdown() {
+  const cnt = document.getElementById('ddCount');
+  const sa  = document.getElementById('ddSaBtn');
+  const lst = document.getElementById('ddList');
+  if (!cnt||!sa||!lst) return;
+  cnt.textContent = `${ddItems.length}개 항목`;
+  const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
+  sa.textContent = allSel ? '전체 해제' : '전체 선택';
+  lst.innerHTML = ddItems.map((item,idx) => {
+    const chk = ddSelected.has(item.name);
+    return `<div class="ddi ${chk?'sel':''}" onclick="event.stopPropagation();toggleDdItem(${idx})">
+      <input type="checkbox" ${chk?'checked':''}>
+      <span class="ddi-name">${escH(truncate(item.name,36))}</span>
+      <span class="ddi-edi">${escH(item.ediCode)}</span>
+    </div>`;
+  }).join('');
+  updateDdCnt();
+}
+function toggleDdItem(idx) {
+  const item = ddItems[idx]; if(!item) return;
+  if (ddSelected.has(item.name)) ddSelected.delete(item.name);
+  else                            ddSelected.add(item.name);
+  renderDropdown();
+}
+function ddSelectAll() {
+  const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
+  ddItems.forEach(item => allSel ? ddSelected.delete(item.name) : ddSelected.add(item.name));
+  renderDropdown();
+}
+function updateDdCnt() {
+  const el = document.getElementById('ddSelCnt'); if(el) el.textContent=`${ddSelected.size}개 선택됨`;
+}
+function openDropdown()  { const d=document.getElementById('dropdown'); if(d) d.classList.add('open'); }
+function closeDropdown() { const d=document.getElementById('dropdown'); if(d) d.classList.remove('open'); }
+function confirmSelection() {
+  if (ddSelected.size===0) {
+    ddItems.forEach(item=>selectedNames.add(item.name));
+  } else {
+    ddSelected.forEach(n=>selectedNames.add(n));
+  }
+  ddSelected.clear();
+  closeDropdown();
+  const inp = document.getElementById('searchInput'); if(inp) inp.value='';
+  renderChips();
+  if (selectedNames.size>0) renderTable();
+}
+
+/* ══════════════════════════════════════════════
+   칩
+══════════════════════════════════════════════ */
+function renderChips() {
+  const wrap = document.getElementById('selectedChips'); if(!wrap) return;
+  const arr  = [...selectedNames];
+  if (!arr.length) { wrap.innerHTML=''; return; }
+  wrap.innerHTML = arr.map(name=>`
+    <div class="chip">
+      <span title="${escH(name)}">${escH(truncate(name,22))}</span>
+      <span class="chip-del" onclick="removeChip('${escJs(name)}')">×</span>
+    </div>`).join('') +
+    `<div class="chip chip-clear" onclick="clearChips()"><span>전체 지우기</span><span class="chip-del">×</span></div>`;
+  // 엑셀 버튼 표시
+  const eb = document.getElementById('excelBtn'); if(eb){ eb.style.display='inline-block'; eb.disabled=false; }
+}
+function removeChip(name) { selectedNames.delete(name); renderChips(); selectedNames.size>0?renderTable():resetResult(); }
+function clearChips()      { selectedNames.clear(); renderChips(); resetResult(); }
+
+/* ══════════════════════════════════════════════
+   결과 영역 헬퍼
+══════════════════════════════════════════════ */
+function getResultArea() {
+  return currentLayout==='sidebar'
+    ? document.getElementById('resultAreaSb')
+    : document.getElementById('resultAreaTop');
+}
+
+/* ══════════════════════════════════════════════
+   테이블 렌더
+══════════════════════════════════════════════ */
+function renderTable() {
+  const names = [...selectedNames];
+  if (!names.length) { resetResult(); return; }
+  expandedItem = null;
+  Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
+
+  const display   = names.slice(0,MAX_ROWS);
+  const isLimited = names.length>MAX_ROWS;
+  const allPrices = loadedData.filter(d=>names.includes(d.itemName)&&d.price>0).map(d=>d.price);
+  const minP=allPrices.length?Math.min(...allPrices):0;
+  const maxP=allPrices.length?Math.max(...allPrices):0;
+  const avgP=allPrices.length?Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length):0;
+
+  let html=`
+  <div class="res-header">
+    <div class="st"><span class="st-l">선택 항목</span><span class="st-v">${names.length}개</span></div>
+    <div class="st-sep"></div>
+    <div class="st"><span class="st-l">최저가</span><span class="st-v" style="color:#1a7a4a">${minP.toLocaleString()}원</span></div>
+    <div class="st-sep"></div>
+    <div class="st"><span class="st-l">최고가</span><span class="st-v" style="color:var(--pink)">${maxP.toLocaleString()}원</span></div>
+    <div class="st-sep"></div>
+    <div class="st"><span class="st-l">평균가</span><span class="st-v">${avgP.toLocaleString()}원</span></div>
+    ${isLimited?`<div class="st-sep"></div><div class="st"><span style="color:#E67E22;font-size:12px">⚠ ${MAX_ROWS}개만 표시 · 전체는 엑셀</span></div>`:''}
+  </div>
+  <div class="tab-row">
+    <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
+    <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
+  </div>`;
+
+  if (currentTab==='table') {
+    html += `
+    <div class="legend-row">
+      <div class="leg"><div class="leg-sq" style="background:hsl(120,50%,78%)"></div>최저가</div>
+      <div class="leg"><div class="leg-sq" style="background:hsl(60,50%,78%)"></div>중간가</div>
+      <div class="leg"><div class="leg-sq" style="background:hsl(0,50%,78%)"></div>최고가</div>
+      <div class="leg"><div class="leg-sq" style="background:#EEF2F7;border:1px solid var(--border)"></div>데이터 없음</div>
+      <div class="leg-hint">분홍 테두리 = ${MY_HOSP} &nbsp;|&nbsp; 행 클릭 → 상세 차트</div>
+    </div>
+    <div class="table-wrap"><table>
+    <thead><tr>
+      <th>항목명</th>
+      ${selectedHosps.map(h=>`<th class="${h===MY_HOSP?'my-col':''}" style="min-width:108px">${h===MY_HOSP?'★ ':''}${h}</th>`).join('')}
+    </tr></thead>
+    <tbody id="tBody">`;
+
+    display.forEach(name => {
+      const items   = loadedData.filter(d=>d.itemName===name);
+      const ediCode = items[0]?.ediCode||'-';
+      const priceArr= selectedHosps.map(h=>{ const f=items.find(d=>d.hospName===h); return f?f.price:null; });
+      const cmap    = buildColorMap(priceArr.filter(p=>p!==null).sort((a,b)=>a-b));
+
+      html+=`<tr data-name="${escH(name)}" onclick="toggleInlineChart(this)">
+        <td title="${escH(name)}">${escH(truncate(name,33))}<span class="edi-tag">${escH(ediCode)}</span></td>`;
+      priceArr.forEach((price,i)=>{
+        const isMy=selectedHosps[i]===MY_HOSP;
+        if(price===null) html+=`<td class="${isMy?'my-c':''}"><span class="nd">—</span></td>`;
+        else {
+          const bg=cmap.get(price)||'#fff';
+          html+=`<td class="pc ${isMy?'my-c':''}" style="background:${bg}">${price.toLocaleString()}원</td>`;
+        }
+      });
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+
+  } else {
+    // 차트 그리드
+    html+=`<div class="chart-grid" id="chartGrid">`;
+    display.forEach((name,gi)=>{
+      const items = loadedData.filter(d=>d.itemName===name);
+      const chartData = selectedHosps
+        .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)}))
+        .filter(d=>d.rec)
+        .map(d=>({hosp:d.hosp,price:d.rec.price}))
+        .sort((a,b)=>a.price-b.price);
+      if(!chartData.length) return;
+      const canvasH = Math.max(140, chartData.length*30);
+      html+=`<div class="chart-card">
+        <div class="chart-card-title" title="${escH(name)}">${escH(truncate(name,28))}</div>
+        <div class="chart-card-sub">${items[0]?.ediCode||''} · ${chartData.length}개 병원</div>
+        <div style="position:relative;height:${canvasH}px">
+          <canvas id="gc-${gi}"></canvas>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  getResultArea().innerHTML = html;
+
+  // 차트 그리드 렌더
+  if (currentTab==='chart') {
+    display.forEach((name,gi)=>{
+      const canvas = document.getElementById(`gc-${gi}`); if(!canvas) return;
+      const items  = loadedData.filter(d=>d.itemName===name);
+      const chartData = selectedHosps
+        .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)}))
+        .filter(d=>d.rec)
+        .map(d=>({hosp:d.hosp,price:d.rec.price}))
+        .sort((a,b)=>a.price-b.price);
+      if(!chartData.length) return;
+      const n = chartData.length;
+      const colors = chartData.map((d,i)=>{
+        if(d.hosp===MY_HOSP) return '#E8445A';
+        const r=n===1?.5:i/(n-1);
+        return `hsl(${(120*(1-r)).toFixed(0)},55%,48%)`;
+      });
+      activeCharts[`gc-${gi}`] = new Chart(canvas.getContext('2d'),{
+        type:'bar',
+        data:{labels:chartData.map(d=>d.hosp),datasets:[{
+          data:chartData.map(d=>d.price),
+          backgroundColor:colors,
+          borderRadius:4,borderSkipped:false,
+        }]},
+        options:{
+          indexAxis:'y',responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x.toLocaleString()}원`}}},
+          scales:{
+            x:{beginAtZero:false,min:Math.max(0,chartData[0].price*.88),
+               ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:10}},
+               grid:{color:'#EEF2F7'}},
+            y:{ticks:{font:ctx=>({size:11,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
+                      color:ctx=>chartData[ctx.index]?.hosp===MY_HOSP?'#E8445A':'#334155'},
+               grid:{display:false}}
+          }
+        }
+      });
+    });
+  }
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  renderTable();
+}
+
+/* ══════════════════════════════════════════════
+   인라인 차트 (행 클릭)
+══════════════════════════════════════════════ */
+function toggleInlineChart(tr) {
+  const name = tr.dataset.name;
+  document.getElementById('_cr')?.remove();
+  if (activeCharts['_inline']) { activeCharts['_inline'].destroy(); delete activeCharts['_inline']; }
+  document.querySelectorAll('#tBody tr.row-exp').forEach(r=>r.classList.remove('row-exp'));
+
+  if (expandedItem===name) { expandedItem=null; return; }
+  expandedItem = name;
+  tr.classList.add('row-exp');
+
+  const items = loadedData.filter(d=>d.itemName===name);
+  const chartData = selectedHosps
+    .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)})).filter(d=>d.rec)
+    .map(d=>({hosp:d.hosp,price:d.rec.price,date:d.rec.date,unit:d.rec.unit}))
+    .sort((a,b)=>a.price-b.price);
+  if(!chartData.length) return;
+
+  const n=chartData.length,minV=chartData[0].price,maxV=chartData[n-1].price,diff=maxV-minV;
+  const pct=minV>0?((diff/minV)*100).toFixed(1):'0';
+  const h=Math.max(180,n*38);
+  const colors=chartData.map((d,i)=>{
+    if(d.hosp===MY_HOSP) return '#E8445A';
+    const r=n===1?.5:i/(n-1);
+    return `hsl(${(120*(1-r)).toFixed(0)},58%,46%)`;
+  });
+  const rankHtml=chartData.slice(0,8).map((d,i)=>`
+    <div class="ri">
+      <div class="rn" style="background:${colors[i]}">${i+1}</div>
+      <div class="ri-name" style="color:${d.hosp===MY_HOSP?'var(--pink)':'var(--text)'};font-weight:${d.hosp===MY_HOSP?700:400}">${escH(d.hosp)}</div>
+      <div class="ri-price">${d.price.toLocaleString()}원</div>
+    </div>`).join('')+(n>8?`<div style="font-size:11px;color:#94A3B8;padding-top:4px">… 외 ${n-8}개 병원</div>`:'');
+
+  const cr=document.createElement('tr'); cr.id='_cr'; cr.className='chart-row';
+  cr.innerHTML=`<td colspan="${selectedHosps.length+1}"><div class="ci">
+    <div class="ci-canvas" style="height:${h}px"><canvas id="_cc"></canvas></div>
+    <div class="ci-side">
+      <h4>${escH(truncate(name,22))}</h4>
+      <div class="ss"><span class="ss-l">최저가</span><span class="ss-v" style="color:#1a7a4a">${minV.toLocaleString()}원</span></div>
+      <div class="ss"><span class="ss-l">최고가</span><span class="ss-v" style="color:var(--pink)">${maxV.toLocaleString()}원</span></div>
+      <div class="ss"><span class="ss-l">격차</span><span class="ss-v">${diff.toLocaleString()}원</span></div>
+      <div class="ss"><span class="ss-l">격차율</span><span class="ss-v">${pct}%</span></div>
+      <div class="ss"><span class="ss-l">비교 병원</span><span class="ss-v">${n}개</span></div>
+      <div class="rk-t" style="margin-top:9px">가격 순위</div>${rankHtml}
+    </div>
+  </div></td>`;
+  tr.insertAdjacentElement('afterend',cr);
+
+  activeCharts['_inline']=new Chart(document.getElementById('_cc').getContext('2d'),{
+    type:'bar',
+    data:{labels:chartData.map(d=>d.hosp),datasets:[{
+      data:chartData.map(d=>d.price),backgroundColor:colors,
+      borderColor:chartData.map(d=>d.hosp===MY_HOSP?'#C0303F':'transparent'),
+      borderWidth:chartData.map(d=>d.hosp===MY_HOSP?2:0),
+      borderRadius:5,borderSkipped:false,
+    }]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:c=>` ${c.parsed.x.toLocaleString()}원`,
+        afterLabel:c=>{const d=chartData[c.dataIndex];return d?`  등록일: ${d.date}  단위: ${d.unit}`:''}
+      }}},
+      scales:{
+        x:{beginAtZero:false,min:Math.max(0,minV*.88),
+           ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:11}},
+           grid:{color:'#EEF2F7'}},
+        y:{ticks:{font:ctx=>({size:12,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
+                  color:ctx=>chartData[ctx.index]?.hosp===MY_HOSP?'#E8445A':'#334155'},
+           grid:{display:false}}
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   엑셀
+══════════════════════════════════════════════ */
+function exportExcel() {
+  const names=[...selectedNames]; if(!names.length) return;
+  const headers=['항목명','EDI코드','분류',...selectedHosps.flatMap(h=>[`${h}_단가(원)`,`${h}_등록일`])];
+  const rows=[headers];
+  names.forEach(name=>{
+    const items=loadedData.filter(d=>d.itemName===name);
+    const row=[name,items[0]?.ediCode||'-',items[0]?.category||'-'];
+    selectedHosps.forEach(h=>{const f=items.find(d=>d.hospName===h);row.push(f?f.price:'');row.push(f?f.date:'');});
+    rows.push(row);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:42},{wch:13},{wch:18},...selectedHosps.flatMap(()=>[{wch:14},{wch:13}])];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'비급여비교');
+  const mrows=[['병원명','수집일','항목수']];
+  selectedHosps.forEach(h=>{const info=metadata[h];if(info)mrows.push([h,info.updated,info.count]);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mrows),'수집정보');
+  XLSX.writeFile(wb,`비급여비교_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+/* ══════════════════════════════════════════════
+   유틸
+══════════════════════════════════════════════ */
+function resetResult() {
+  Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
+  expandedItem=null;
+  getResultArea().innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">검색창에서 항목을 선택해주세요.</div></div>`;
+  const eb=document.getElementById('excelBtn'); if(eb) eb.disabled=true;
+}
+function buildColorMap(sorted){
+  const map=new Map(),u=[...new Set(sorted)];
+  u.forEach((p,i)=>{const r=u.length===1?.5:i/(u.length-1);map.set(p,`hsl(${(120*(1-r)).toFixed(0)},50%,83%)`);});
+  return map;
+}
+const escH  = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escJs = s=>(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+const truncate=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
+</script>
+</body>
+</html>
