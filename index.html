@@ -575,11 +575,11 @@ function buildSearchCards() {
                  oninput="onSearchInput(event)" onclick="event.stopPropagation()">
           <div class="dropdown" id="dropdown">
             <div class="dd-head" onclick="event.stopPropagation()">
-              <span id="ddCount">0개 항목</span>
               <div style="display:flex;gap:6px;">
                 <button class="dd-sa" onclick="event.stopPropagation();ddSelectAll(true)">전체 선택</button>
                 <button class="dd-sa" style="color:var(--muted);" onclick="event.stopPropagation();ddSelectAll(false)">전체 해제</button>
               </div>
+              <span id="ddCount">0개 항목</span>
             </div>
             <div class="dd-list" id="ddList" onclick="event.stopPropagation()"></div>
             <div class="dd-foot" onclick="event.stopPropagation()">
@@ -676,12 +676,9 @@ function onSearchInput(e) {
 }
 function renderDropdown() {
   const cnt = document.getElementById('ddCount');
-  const sa  = document.getElementById('ddSaBtn');
   const lst = document.getElementById('ddList');
-  if (!cnt||!sa||!lst) return;
+  if (!cnt||!lst) return;
   cnt.textContent = `${ddItems.length}개 항목`;
-  const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
-  sa.textContent = allSel ? '전체 해제' : '전체 선택';
   lst.innerHTML = ddItems.map((item,idx) => {
     const chk = ddSelected.has(item.name);
     return `<div class="ddi ${chk?'sel':''}" onclick="event.stopPropagation();toggleDdItem(${idx})">
