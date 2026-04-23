@@ -67,7 +67,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .hc.on .hc-date{color:rgba(255,255,255,0.38);}
 .cell-price{font-weight:700;font-size:13px;line-height:1.3;}
 .cell-date{font-size:10px;color:rgba(0,0,0,0.35);margin-top:2px;}
-.load-btn-sb{margin:10px 14px 4px;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;text-align:center;}
+.load-btn-sb{margin:8px 6px 10px;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;text-align:center;width:calc(100% - 12px);display:block;}
 .load-btn-sb:hover:not(:disabled){background:#2471A3;}
 .load-btn-sb:disabled{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.22);cursor:not-allowed;}
 .sb-status{padding:7px 14px 12px;font-size:11px;color:rgba(255,255,255,0.28);line-height:1.6;}
@@ -325,10 +325,10 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
         <button onclick="selectAll('sb',true)">전체 선택</button>
         <button onclick="selectAll('sb',false)">전체 해제</button>
       </div>
+      <button class="load-btn-sb" id="loadBtnSb" onclick="loadSelectedData()">🚀 선택 병원 데이터 로드</button>
+      <div class="sidebar-status sb-status" id="sbStatus"></div>
       <div id="hospListSb" class="hosp-list-sb"></div>
     </div>
-    <button class="load-btn-sb" id="loadBtnSb" onclick="loadSelectedData()">🚀 선택 병원 데이터 로드</button>
-    <div class="sidebar-status sb-status" id="sbStatus"></div>
   </aside>
 
   <!-- 메인 (사이드바 모드) -->
@@ -576,7 +576,10 @@ function buildSearchCards() {
           <div class="dropdown" id="dropdown">
             <div class="dd-head" onclick="event.stopPropagation()">
               <span id="ddCount">0개 항목</span>
-              <button class="dd-sa" id="ddSaBtn" onclick="event.stopPropagation();ddSelectAll()">전체 선택</button>
+              <div style="display:flex;gap:6px;">
+                <button class="dd-sa" onclick="event.stopPropagation();ddSelectAll(true)">전체 선택</button>
+                <button class="dd-sa" style="color:var(--muted);" onclick="event.stopPropagation();ddSelectAll(false)">전체 해제</button>
+              </div>
             </div>
             <div class="dd-list" id="ddList" onclick="event.stopPropagation()"></div>
             <div class="dd-foot" onclick="event.stopPropagation()">
@@ -695,9 +698,16 @@ function toggleDdItem(idx) {
   else                            ddSelected.add(item.name);
   renderDropdown();
 }
-function ddSelectAll() {
-  const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
-  ddItems.forEach(item => allSel ? ddSelected.delete(item.name) : ddSelected.add(item.name));
+function ddSelectAll(v) {
+  if (v === undefined) {
+    // 기존 토글 방식 (하위 호환)
+    const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
+    ddItems.forEach(item => allSel ? ddSelected.delete(item.name) : ddSelected.add(item.name));
+  } else if (v) {
+    ddItems.forEach(item => ddSelected.add(item.name));
+  } else {
+    ddItems.forEach(item => ddSelected.delete(item.name));
+  }
   renderDropdown();
 }
 function updateDdCnt() {
