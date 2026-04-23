@@ -257,6 +257,75 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
 
+@media(max-width:768px){
+  /* 사이드바 → 드로어로 전환 */
+  .layout-sidebar{position:relative;}
+  .sidebar{
+    position:fixed;top:0;left:0;height:100vh;
+    transform:translateX(-100%);transition:transform .25s ease;
+    z-index:500;box-shadow:4px 0 20px rgba(0,0,0,0.3);
+  }
+  .sidebar.drawer-open{transform:translateX(0);}
+
+  /* 드로어 오버레이 */
+  .drawer-overlay{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,0.45);z-index:499;
+  }
+  .drawer-overlay.show{display:block;}
+
+  /* 모바일 메뉴 버튼 */
+  .mobile-menu-btn{
+    display:flex;align-items:center;justify-content:center;
+    width:36px;height:36px;
+    background:var(--navy);color:#fff;
+    border:none;border-radius:8px;
+    font-size:18px;cursor:pointer;flex-shrink:0;
+  }
+
+  /* 탑바 */
+  .topbar{padding:10px 14px;flex-wrap:wrap;gap:6px;}
+  .topbar-left{min-width:0;flex:1;}
+  .topbar-title{font-size:13px;}
+  .topbar-meta{font-size:10.5px;}
+  .topbar-right{gap:6px;}
+  .data-badge{font-size:11px;padding:4px 10px;}
+  .layout-toggle{display:none;} /* 모바일에서 레이아웃 토글 숨김 */
+
+  /* 콘텐츠 */
+  .content{padding:12px 14px;}
+
+  /* 검색 카드 */
+  .search-card{padding:12px 14px;}
+  .search-card-title{font-size:11px;}
+  .search-input{font-size:13px;padding:9px 12px;}
+
+  /* 테이블 */
+  .table-wrap{max-height:55vh;}
+  table{font-size:12px;}
+  thead th{padding:7px 8px;font-size:11px;}
+  tbody td{padding:6px 8px;}
+  tbody td:first-child{min-width:120px;max-width:140px;font-size:11.5px;}
+  .cell-price{font-size:12px;}
+  .cell-date{font-size:9.5px;}
+
+  /* 차트 */
+  .ci{flex-direction:column;}
+  .ci-side{width:100%;}
+  .chart-grid{grid-template-columns:1fr;}
+
+  /* 결과 헤더 */
+  .res-header{padding:8px 14px;gap:10px;}
+  .st-v{font-size:12px;}
+  .st-l{font-size:11px;}
+
+  /* 어드민 모달 */
+  .admin-modal{width:95vw;}
+
+  /* 드롭다운 */
+  .dropdown{max-height:280px;}
+}
+
 /* ── 관리자 버튼 ── */
 .admin-lock-btn{padding:6px 10px;border:1px solid var(--border);background:transparent;border-radius:8px;cursor:pointer;font-size:14px;color:var(--muted);transition:.15s;}
 .admin-lock-btn:hover{background:var(--light);color:var(--navy);}
@@ -313,6 +382,9 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 <!-- ══ SIDEBAR 레이아웃 ══════════════════════ -->
 <div id="layoutSidebar" class="layout-sidebar">
 
+  <!-- 드로어 오버레이 (모바일) -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
   <!-- 사이드바 -->
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
@@ -335,6 +407,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <div class="main-sb">
     <!-- 탑바 -->
     <div class="topbar">
+      <button class="mobile-menu-btn" onclick="openDrawer()">☰</button>
       <div class="topbar-left">
         <div class="topbar-title">상급종합병원 비급여 단가 비교</div>
         <div class="topbar-meta" id="topMeta">병원을 선택하고 데이터를 로드해주세요.</div>
@@ -417,9 +490,9 @@ const DATA_DIR = "data/";
 const MAX_ROWS = 80;
 
 // ── 관리자 설정 (GitHub 배포 후 본인 정보로 수정) ──
-const GITHUB_OWNER = "real4goon";   // 예: "real4goon"
-const GITHUB_REPO  = "new-hl-dashboard";    // 예: "nhs-dashboard"
-const ADMIN_PW     = "kimgoon4!!";             // 관리자 비밀번호 (자유롭게 변경)
+const GITHUB_OWNER = "여기에_깃허브_계정명";   // 예: "real4goon"
+const GITHUB_REPO  = "여기에_리포지토리명";    // 예: "nhs-dashboard"
+const ADMIN_PW     = "hallym2026";             // 관리자 비밀번호 (자유롭게 변경)
 
 /* ══════════════════════════════════════════════
    상태
@@ -656,6 +729,7 @@ async function loadSelectedData() {
   ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
 
   buildSearchCards();
+  closeDrawer();
   getResultArea().innerHTML = `
     <div class="empty">
       <div class="empty-icon">✅</div>
@@ -1019,6 +1093,17 @@ const truncate=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
    관리자 패널
 ══════════════════════════════════════════════ */
 let adminUnlocked = false;
+
+function openDrawer() {
+  document.getElementById('sidebarEl')?.classList.add('drawer-open');
+  document.getElementById('drawerOverlay')?.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeDrawer() {
+  document.getElementById('sidebarEl')?.classList.remove('drawer-open');
+  document.getElementById('drawerOverlay')?.classList.remove('show');
+  document.body.style.overflow = '';
+}
 
 function openAdminPanel() {
   document.getElementById('adminOverlay').style.display = 'flex';
