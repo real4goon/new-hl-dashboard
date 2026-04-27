@@ -1356,7 +1356,11 @@ function startPolling(label) {
         if (ok) {
           addLog(`🔗 <a href="${run.html_url}" target="_blank" style="color:var(--blue)">Actions 상세 보기</a>`, '');
           addLog(`💡 새로고침(Ctrl+Shift+R)하면 업데이트된 데이터를 볼 수 있습니다.`, 'run');
+        } else {
+          addLog(`🔗 <a href="${run.html_url}" target="_blank" style="color:var(--blue)">실패 원인 확인</a>`, '');
         }
+        // 상단 배너 표시
+        showResultBanner(ok, label, run.html_url);
         pollTimer = null;
       } else {
         count++;
@@ -1396,6 +1400,34 @@ function resetAdminPw() {
   if (!confirm(`비밀번호를 기본값(${ADMIN_PW})으로 초기화하시겠습니까?`)) return;
   localStorage.removeItem('admin_pw');
   addLog(`✅ 비밀번호가 기본값으로 초기화되었습니다.`, 'ok');
+}
+
+function showResultBanner(ok, label, url) {
+  const existing = document.getElementById('adminBanner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'adminBanner';
+  banner.style.cssText = `
+    padding:12px 16px; margin-bottom:14px; border-radius:9px;
+    font-size:13px; font-weight:700; line-height:1.6;
+    background:${ok?'#D1FAE5':'#FFE4E8'};
+    border:1.5px solid ${ok?'#6EE7B7':'#FCA5A5'};
+    color:${ok?'#065F46':'#991B1B'};
+  `;
+  banner.innerHTML = ok
+    ? `✅ ${label} 업데이트 완료!<br>
+       <span style="font-weight:400;font-size:12px;">
+         Ctrl+Shift+R로 새로고침하면 최신 데이터를 볼 수 있습니다.<br>
+         <a href="${url}" target="_blank" style="color:#2563EB;">Actions 상세 보기 →</a>
+       </span>`
+    : `❌ ${label} 업데이트 실패<br>
+       <span style="font-weight:400;font-size:12px;">
+         <a href="${url}" target="_blank" style="color:#DC2626;">실패 원인 확인 →</a>
+       </span>`;
+
+  const body = document.getElementById('adminBody');
+  if (body) body.insertBefore(banner, body.firstChild);
 }
 
 function addLog(msg, type='') {
