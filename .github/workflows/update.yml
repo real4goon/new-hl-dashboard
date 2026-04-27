@@ -1,7 +1,6 @@
 name: 비급여 데이터 수집 및 배포
 
 on:
-  # ① 수동 실행 (GitHub 사이트에서 버튼 클릭)
   workflow_dispatch:
     inputs:
       hospital:
@@ -36,7 +35,6 @@ on:
           - 인천성모병원
           - 국립암센터
 
-  # ② 자동 실행 (매주 월요일 오전 10시 KST)
   schedule:
     - cron: '0 1 * * 1'
 
@@ -44,11 +42,13 @@ jobs:
   collect-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-          pages: write
+      contents: write
 
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Python 설치
         uses: actions/setup-python@v5
@@ -68,11 +68,10 @@ jobs:
             python collect_data.py --force
           fi
 
-- name: 변경사항 커밋 및 푸시
+      - name: 변경사항 커밋 및 푸시
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           git diff --staged --quiet || git commit -m "데이터 업데이트: $(date '+%Y-%m-%d %H:%M') KST"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git push
