@@ -4,39 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       hospital:
-        description: '수집할 병원 (비워두면 전체 수집)'
+        description: '수집할 병원 (비워두면 전체 수집, 쉼표로 여러 개 가능: 한림성심병원,서울대병원)'
         required: false
         default: ''
-        type: choice
-        options:
-          - ''
-          - 한림성심병원
-          - 서울대병원
-          - 삼성서울병원
-          - 서울아산병원
-          - 세브란스병원
-          - 강남세브란스
-          - 서울성모병원
-          - 고대안암병원
-          - 고대구로병원
-          - 경희대병원
-          - 한양대병원
-          - 중앙대병원
-          - 목동병원
-          - 강북삼성병원
-          - 아주대병원
-          - 분당서울대병원
-          - 길병원
-          - 인하대병원
-          - 고대안산병원
-          - 부천성모병원
-          - 의정부성모병원
-          - 성빈센트병원
-          - 인천성모병원
-          - 국립암센터
+        type: string
 
   schedule:
     - cron: '0 1 * * 1'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   collect-and-deploy:
@@ -60,12 +37,18 @@ jobs:
 
       - name: 데이터 수집
         run: |
-          if [ -n "${{ github.event.inputs.hospital }}" ]; then
-            echo "선택 병원 수집: ${{ github.event.inputs.hospital }}"
-            python collect_data.py --hospital "${{ github.event.inputs.hospital }}" --force
-          else
+          INPUT="${{ github.event.inputs.hospital }}"
+          if [ -z "$INPUT" ]; then
             echo "전체 병원 수집"
             python collect_data.py --force
+          else
+            # 쉼표로 구분된 병원 목록을 하나씩 수집
+            IFS=',' read -ra HOSPITALS <<< "$INPUT"
+            for HOSP in "${HOSPITALS[@]}"; do
+              HOSP=$(echo "$HOSP" | xargs)  # 앞뒤 공백 제거
+              echo "수집: $HOSP"
+              python collect_data.py --hospital "$HOSP" --force
+            done
           fi
 
       - name: 변경사항 커밋 및 푸시
