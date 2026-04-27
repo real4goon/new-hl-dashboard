@@ -44,9 +44,7 @@ jobs:
   collect-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pages: write
-      id-token: write
+          pages: write
 
     steps:
       - name: 코드 체크아웃
