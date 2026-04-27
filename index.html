@@ -639,11 +639,11 @@ function getCheckedHosps() {
 function buildSearchCards() {
   const html = `
     <div class="search-card">
-      <div class="search-card-title">🔍 비급여 항목 검색 — 검색어 입력 후 항목 선택 → [이 항목들 비교] 클릭</div>
+      <div class="search-card-title">🔍 비급여 항목 검색 — 검색어 입력 후 항목 선택 → [이 항목들 비교] 클릭 &nbsp;<span style="font-weight:400;color:#94A3B8;">※ 스페이스바로 AND 검색 가능 (예: MRI 근골격계)</span></div>
       <div class="search-row">
         <div class="search-wrap">
           <input class="search-input" id="searchInput"
-                 placeholder="항목명 또는 EDI코드 입력 (예: MRI, 초음파, 상급병실)"
+                 placeholder="예: MRI &nbsp;→&nbsp; MRI 근골격계 (AND 검색)"
                  autocomplete="off" ${loadedData.length?'':'disabled'}
                  oninput="onSearchInput(event)" onclick="event.stopPropagation()">
           <div class="dropdown" id="dropdown">
@@ -665,6 +665,11 @@ function buildSearchCards() {
           ${selectedNames.size?'':'disabled'} style="${selectedNames.size?'':'display:none'}">📊 엑셀 저장</button>
       </div>
       <div class="sel-chips" id="selectedChips"></div>
+      <div id="chipFilterWrap" style="display:none; margin-top:8px;">
+        <input class="search-input" id="chipFilter" style="font-size:12px;padding:7px 12px;"
+               placeholder="선택된 항목 내에서 필터 (예: 갑상선)"
+               oninput="filterChips()" autocomplete="off">
+      </div>
     </div>`;
 
   if (currentLayout==='sidebar') {
@@ -742,9 +747,33 @@ async function loadSelectedData() {
 ══════════════════════════════════════════════ */
 function onSearchInput(e) {
   e.stopPropagation();
-  const kw = document.getElementById('searchInput').value.trim();
-  if (!kw) { closeDropdown(); return; }
-  ddItems = fuse ? fuse.search(kw,{limit:60}).map(r=>r.item) : allItems.slice(0,60);
+  const raw = document.getElementById('searchInput').value.trim();
+  if (!raw) { closeDropdown(); return; }
+
+  // 스페이스 구분 AND 검색
+  const keywords = raw.split(/\s+/).filter(Boolean);
+
+  if (keywords.length === 1) {
+    // 단일 키워드: 기존 퍼지 검색
+    ddItems = fuse ? fuse.search(keywords[0], {limit:100}).map(r=>r.item) : allItems.slice(0,100);
+  } else {
+    // 복수 키워드: 각 키워드를 퍼지 검색 후 AND 교집합
+    let result = allItems;
+    keywords.forEach(kw => {
+      const matched = new Set(
+        fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.name) : allItems.map(i=>i.name)
+      );
+      result = result.filter(item => matched.has(item.name));
+    });
+    ddItems = result.slice(0, 100);
+  }
+
+  // 이미 선택된 항목 상단에 표시
+  const selSet = new Set([...selectedNames]);
+  const selected   = ddItems.filter(i => selSet.has(i.name));
+  const unselected = ddItems.filter(i => !selSet.has(i.name));
+  ddItems = [...selected, ...unselected];
+
   renderDropdown();
   openDropdown();
 }
@@ -802,18 +831,33 @@ function confirmSelection() {
 /* ══════════════════════════════════════════════
    칩
 ══════════════════════════════════════════════ */
-function renderChips() {
+function renderChips(filterKw) {
   const wrap = document.getElementById('selectedChips'); if(!wrap) return;
   const arr  = [...selectedNames];
-  if (!arr.length) { wrap.innerHTML=''; return; }
-  wrap.innerHTML = arr.map(name=>`
-    <div class="chip">
-      <span title="${escH(name)}">${escH(truncate(name,22))}</span>
-      <span class="chip-del" onclick="removeChip('${escJs(name)}')">×</span>
-    </div>`).join('') +
+  if (!arr.length) {
+    wrap.innerHTML='';
+    const fw=document.getElementById('chipFilterWrap'); if(fw) fw.style.display='none';
+    return;
+  }
+  const kw = (filterKw !== undefined ? filterKw : document.getElementById('chipFilter')?.value||'').trim().toLowerCase();
+  const visible = kw ? arr.filter(n=>n.toLowerCase().includes(kw)) : arr;
+  const hidden  = arr.length - visible.length;
+  wrap.innerHTML =
+    visible.map(name=>`
+      <div class="chip">
+        <span title="${escH(name)}">${escH(truncate(name,22))}</span>
+        <span class="chip-del" onclick="removeChip('${escJs(name)}')">×</span>
+      </div>`).join('') +
+    (hidden>0?`<div class="chip" style="background:#F1F5F9;border-color:#CBD5E1;color:var(--muted);">+${hidden}개 숨김</div>`:'') +
     `<div class="chip chip-clear" onclick="clearChips()"><span>전체 지우기</span><span class="chip-del">×</span></div>`;
-  // 엑셀 버튼 표시
-  const eb = document.getElementById('excelBtn'); if(eb){ eb.style.display='inline-block'; eb.disabled=false; }
+  const fw=document.getElementById('chipFilterWrap'); if(fw) fw.style.display=arr.length>=3?'block':'none';
+  const eb=document.getElementById('excelBtn'); if(eb){ eb.style.display='inline-block'; eb.disabled=false; }
+}
+function filterChips() {
+  const kw = document.getElementById('chipFilter')?.value||'';
+  renderChips(kw);
+  const filtered = kw.trim() ? [...selectedNames].filter(n=>n.toLowerCase().includes(kw.toLowerCase())) : [...selectedNames];
+  if (filtered.length>0) renderTableWithNames(filtered);
 }
 function removeChip(name) { selectedNames.delete(name); renderChips(); selectedNames.size>0?renderTable():resetResult(); }
 function clearChips()      { selectedNames.clear(); renderChips(); resetResult(); }
@@ -830,8 +874,8 @@ function getResultArea() {
 /* ══════════════════════════════════════════════
    테이블 렌더
 ══════════════════════════════════════════════ */
-function renderTable() {
-  const names = [...selectedNames];
+function renderTable() { renderTableWithNames([...selectedNames]); }
+function renderTableWithNames(names) {
   if (!names.length) { resetResult(); return; }
   expandedItem = null;
   Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
