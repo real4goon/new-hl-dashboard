@@ -1196,14 +1196,14 @@ function renderAdminPanel() {
     const info = metadata[name]||{};
     const isMy = name === MY_HOSP;
     return `<div class="admin-hosp-row">
-      <span class="admin-hosp-name ${isMy?'my':''}">${name}${isMy?' ★':''}</span>
+      <input type="checkbox" class="admin-hosp-cb" value="${escH(name)}"
+             style="width:16px;height:16px;accent-color:var(--blue);flex-shrink:0;cursor:pointer;"
+             ${isMy?'checked':''}>
+      <span class="admin-hosp-name ${isMy?'my':''}" style="flex:1">${name}${isMy?' ★':''}</span>
       <span class="admin-hosp-meta">
         ${info.count?info.count.toLocaleString()+'건':'미수집'}<br>
-        ${info.updated||'—'}
+        <span style="font-size:10px">${info.updated?info.updated.slice(0,10):'—'}</span>
       </span>
-      <button class="admin-run-btn" onclick="triggerUpdate('${escJs(name)}')" ${!token?'disabled':''}>
-        업데이트
-      </button>
     </div>`;
   }).join('');
 
@@ -1226,11 +1226,25 @@ function renderAdminPanel() {
       💾 입력한 토큰은 이 브라우저에 영구 저장됩니다. PC마다 최초 1회만 입력하면 됩니다.
     </div>
 
-    <div class="admin-section-title">병원별 업데이트</div>
+    <div class="admin-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>병원 선택 후 업데이트</span>
+      <div style="display:flex;gap:6px;">
+        <button class="dd-sa" onclick="adminSelectAll(true)">전체 선택</button>
+        <button class="dd-sa" style="color:var(--muted)" onclick="adminSelectAll(false)">전체 해제</button>
+      </div>
+    </div>
     <div class="admin-hosp-grid">${hospRows}</div>
-    <button class="admin-run-all" onclick="triggerBulkUpdate()" ${!token?'disabled':''}>
-      🔄 전체 병원 일괄 업데이트 (Actions 1회 실행)
-    </button>
+
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="admin-run-all" style="flex:1;background:var(--blue);margin-top:0"
+              onclick="triggerSelectedUpdate()" ${!token?'disabled':''}>
+        ✅ 선택 병원 업데이트
+      </button>
+      <button class="admin-run-all" style="flex:1;margin-top:0"
+              onclick="triggerBulkUpdate()" ${!token?'disabled':''}>
+        🔄 전체 병원 업데이트
+      </button>
+    </div>
     <div class="admin-status-log" id="adminLog">업데이트 버튼을 클릭하면 GitHub Actions가 실행됩니다.</div>
 
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
@@ -1301,6 +1315,46 @@ async function triggerUpdate(hospital) {
 }
 
 // 일괄 업데이트 (병원 하나씩 순차 요청)
+function adminSelectAll(v) {
+  document.querySelectorAll('.admin-hosp-cb').forEach(cb => cb.checked = v);
+}
+
+async function triggerSelectedUpdate() {
+  const checked = [...document.querySelectorAll('.admin-hosp-cb:checked')].map(cb => cb.value);
+  if (!checked.length) { addLog('❌ 업데이트할 병원을 선택해주세요.', 'err'); return; }
+
+  const token = localStorage.getItem('gh_token');
+  if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
+
+  const label = checked.length === 1 ? checked[0] : `선택 ${checked.length}개 병원`;
+  const hospitalStr = checked.join(',');
+
+  addLog(`⏳ ${label} 업데이트 요청 중...`, 'run');
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update.yml/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json'
+        },
+        body: JSON.stringify({ ref: 'main', inputs: { hospital: hospitalStr } })
+      }
+    );
+    if (res.status === 204) {
+      addLog(`✅ ${label} 업데이트 요청 성공!`, 'ok');
+      addLog(`⏱ 진행 상황을 15초마다 자동 확인합니다...`, 'run');
+      startPolling(label);
+    } else {
+      addLog(`❌ 오류 발생 (HTTP ${res.status})`, 'err');
+    }
+  } catch(e) {
+    addLog(`❌ 네트워크 오류: ${e.message}`, 'err');
+  }
+}
+
 async function triggerBulkUpdate() {
   const token = localStorage.getItem('gh_token');
   if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
