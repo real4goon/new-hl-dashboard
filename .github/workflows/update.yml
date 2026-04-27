@@ -68,10 +68,11 @@ jobs:
             python collect_data.py --force
           fi
 
-      - name: 변경사항 커밋 및 푸시
+- name: 변경사항 커밋 및 푸시
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           git diff --staged --quiet || git commit -m "데이터 업데이트: $(date '+%Y-%m-%d %H:%M') KST"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git push
