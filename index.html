@@ -490,9 +490,9 @@ const DATA_DIR = "data/";
 const MAX_ROWS = 80;
 
 // ── 관리자 설정 (GitHub 배포 후 본인 정보로 수정) ──
-const GITHUB_OWNER = "real4goon";   // 예: "real4goon"
-const GITHUB_REPO  = "new-hl-dashboard";    // 예: "nhs-dashboard"
-const ADMIN_PW     = "hallym2026";             // 관리자 비밀번호 (자유롭게 변경)
+const GITHUB_OWNER = "real4goon";
+const GITHUB_REPO  = "new-hl-dashboard";
+const ADMIN_PW     = "kimgoon4!!";
 
 /* ══════════════════════════════════════════════
    상태
@@ -1228,8 +1228,8 @@ function renderAdminPanel() {
 
     <div class="admin-section-title">병원별 업데이트</div>
     <div class="admin-hosp-grid">${hospRows}</div>
-    <button class="admin-run-all" onclick="triggerUpdate('')" ${!token?'disabled':''}>
-      🔄 전체 병원 업데이트 (${sorted.length}개)
+    <button class="admin-run-all" onclick="triggerBulkUpdate()" ${!token?'disabled':''}>
+      🔄 전체 병원 일괄 업데이트 (Actions 1회 실행)
     </button>
     <div class="admin-status-log" id="adminLog">업데이트 버튼을 클릭하면 GitHub Actions가 실행됩니다.</div>
 
@@ -1258,12 +1258,14 @@ function saveToken() {
   renderAdminPanel();
 }
 
+// 업데이트 큐 관리
+let updateQueue  = [];
+let isUpdating   = false;
+let pollTimer    = null;
+
 async function triggerUpdate(hospital) {
   const token = localStorage.getItem('gh_token');
   if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
-  if (GITHUB_OWNER === '여기에_깃허브_계정명') {
-    addLog('❌ index.html 상단의 GITHUB_OWNER, GITHUB_REPO를 먼저 설정해주세요.', 'err'); return;
-  }
 
   const label = hospital || `전체 병원 (${Object.keys(metadata).length}개)`;
   addLog(`⏳ ${label} 업데이트 요청 중...`, 'run');
@@ -1284,9 +1286,8 @@ async function triggerUpdate(hospital) {
 
     if (res.status === 204) {
       addLog(`✅ ${label} 업데이트 요청 성공!`, 'ok');
-      addLog(`⏱ 잠시 후 진행 상황을 자동으로 확인합니다...`, 'run');
-      // 5초 후부터 상태 폴링 시작
-      setTimeout(() => pollRunStatus(label), 5000);
+      addLog(`⏱ 진행 상황을 15초마다 자동 확인합니다...`, 'run');
+      startPolling(label);
     } else if (res.status === 401) {
       addLog('❌ 토큰 인증 실패. 토큰을 다시 확인해주세요.', 'err');
     } else if (res.status === 422) {
@@ -1299,50 +1300,84 @@ async function triggerUpdate(hospital) {
   }
 }
 
-// 실행 상태 폴링 (15초마다 최대 40회 = 최대 10분)
-let pollCount = 0;
-async function pollRunStatus(label) {
+// 일괄 업데이트 (병원 하나씩 순차 요청)
+async function triggerBulkUpdate() {
   const token = localStorage.getItem('gh_token');
-  if (!token) return;
+  if (!token) { addLog('❌ GitHub 토큰을 먼저 입력하고 저장해주세요.', 'err'); return; }
+  if (!confirm('전체 병원을 한 번에 업데이트합니다.\n(GitHub Actions 1회 실행, 완료까지 20~40분 소요)')) return;
 
+  addLog(`🔄 전체 병원 일괄 업데이트 요청 중...`, 'run');
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs?per_page=1`,
-      { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } }
-    );
-    const data = await res.json();
-    const run  = data.workflow_runs?.[0];
-    if (!run) return;
-
-    const statusMap = {
-      queued     : '⏳ 대기 중...',
-      in_progress: '🔄 수집 중...',
-      completed  : null
-    };
-    const conclusionMap = {
-      success : '✅ 완료!',
-      failure : '❌ 실패',
-      cancelled: '⚠️ 취소됨'
-    };
-
-    if (run.status === 'completed') {
-      const msg = conclusionMap[run.conclusion] || `완료 (${run.conclusion})`;
-      addLog(`${msg} ${label} — ${new Date(run.updated_at).toLocaleTimeString('ko-KR')}`, run.conclusion==='success'?'ok':'err');
-      if (run.conclusion === 'success') {
-        addLog(`🔗 <a href="${run.html_url}" target="_blank" style="color:var(--blue)">Actions 상세 보기</a>`, '');
-        addLog(`💡 페이지를 새로고침하면 업데이트된 데이터를 볼 수 있습니다.`, 'run');
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update.yml/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json'
+        },
+        body: JSON.stringify({ ref: 'main', inputs: { hospital: '' } })
       }
-      pollCount = 0;
+    );
+    if (res.status === 204) {
+      addLog(`✅ 일괄 업데이트 요청 성공! Actions 1회만 실행됩니다.`, 'ok');
+      addLog(`⏱ 완료까지 20~40분 소요. 진행 상황을 자동 확인합니다...`, 'run');
+      startPolling('전체 병원');
     } else {
-      pollCount++;
-      const elapsed = (pollCount * 15);
-      addLog(`${statusMap[run.status]||run.status} (${elapsed}초 경과)`, 'run');
-      if (pollCount < 40) setTimeout(() => pollRunStatus(label), 15000);
-      else addLog('⚠️ 시간 초과. GitHub Actions 탭에서 직접 확인해주세요.', 'err');
+      addLog(`❌ 오류 발생 (HTTP ${res.status})`, 'err');
     }
   } catch(e) {
-    addLog(`상태 확인 실패: ${e.message}`, 'err');
+    addLog(`❌ 네트워크 오류: ${e.message}`, 'err');
   }
+}
+
+function startPolling(label) {
+  // 기존 폴링 타이머 초기화
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  let count = 0;
+  const maxCount = 80; // 최대 80 × 15초 = 20분
+
+  async function poll() {
+    const token = localStorage.getItem('gh_token');
+    if (!token) return;
+    try {
+      const res = await fetch(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs?per_page=1`,
+        { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } }
+      );
+      const data = await res.json();
+      const run  = data.workflow_runs?.[0];
+      if (!run) { pollTimer = setTimeout(poll, 15000); return; }
+
+      if (run.status === 'completed') {
+        const ok = run.conclusion === 'success';
+        addLog(`${ok?'✅':'❌'} ${label} ${ok?'완료!':'실패'} — ${new Date(run.updated_at).toLocaleTimeString('ko-KR')}`, ok?'ok':'err');
+        if (ok) {
+          addLog(`🔗 <a href="${run.html_url}" target="_blank" style="color:var(--blue)">Actions 상세 보기</a>`, '');
+          addLog(`💡 새로고침(Ctrl+Shift+R)하면 업데이트된 데이터를 볼 수 있습니다.`, 'run');
+        }
+        pollTimer = null;
+      } else {
+        count++;
+        const elapsed = (count * 15);
+        const statusMsg = run.status === 'in_progress' ? '🔄 수집 중...' : '⏳ 대기 중...';
+        addLog(`${statusMsg} (${elapsed}초 경과)`, 'run');
+        if (count < maxCount) {
+          pollTimer = setTimeout(poll, 15000);
+        } else {
+          addLog('⚠️ 자동 확인 종료. GitHub Actions 탭에서 직접 확인해주세요.', 'err');
+          addLog(`🔗 <a href="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions" target="_blank" style="color:var(--blue)">Actions 탭 바로가기</a>`, '');
+          pollTimer = null;
+        }
+      }
+    } catch(e) {
+      addLog(`상태 확인 실패: ${e.message}`, 'err');
+    }
+  }
+
+  // 5초 후 첫 확인 시작
+  pollTimer = setTimeout(poll, 5000);
 }
 
 function changeAdminPw() {
