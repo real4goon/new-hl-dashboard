@@ -719,11 +719,12 @@ async function loadSelectedData() {
     return;
   }
 
-  // (항목명 + EDI코드) 조합으로 중복 제거 → 같은 EDI라도 항목명 다르면 별도 표시
+  // (항목명 + EDI코드 + 단위) 조합으로 중복 제거
+  // → 같은 항목명+EDI라도 단위가 다른 가격 항목은 별도 표시
   const seen = new Map();
   loadedData.forEach(d => {
-    const key = d.itemName + '|||' + d.ediCode;
-    if (!seen.has(key)) seen.set(key, { key, name: d.itemName, ediCode: d.ediCode });
+    const key = d.itemName + '|||' + d.ediCode + '|||' + (d.unit || '');
+    if (!seen.has(key)) seen.set(key, { key, name: d.itemName, ediCode: d.ediCode, unit: d.unit || '' });
   });
   allItems = [...seen.values()].sort((a,b) => a.name.localeCompare(b.name,'ko'));
   fuse = new Fuse(allItems, {keys:['name','ediCode'],threshold:.35,minMatchCharLength:1});
@@ -768,11 +769,11 @@ function onSearchInput(e) {
 
     loadedData.forEach(d => {
       const ediUp  = (d.ediCode || '').toUpperCase();
-      const k      = d.itemName + '|||' + d.ediCode;
+      const k      = d.itemName + '|||' + d.ediCode + '|||' + (d.unit || '');
       if (ediUp === upper) {
-        if (!exactMap.has(k)) exactMap.set(k, { key: k, name: d.itemName, ediCode: d.ediCode });
+        if (!exactMap.has(k)) exactMap.set(k, { key: k, name: d.itemName, ediCode: d.ediCode, unit: d.unit||'' });
       } else if (ediUp.includes(upper)) {
-        if (!partMap.has(k))  partMap.set(k,  { key: k, name: d.itemName, ediCode: d.ediCode });
+        if (!partMap.has(k))  partMap.set(k,  { key: k, name: d.itemName, ediCode: d.ediCode, unit: d.unit||'' });
       }
     });
 
@@ -818,7 +819,7 @@ function renderDropdown() {
     const chk = ddSelected.has(item.key);
     return `<div class="ddi ${chk?'sel':''}" onclick="event.stopPropagation();toggleDdItem(${idx})">
       <input type="checkbox" ${chk?'checked':''}>
-      <span class="ddi-name">${escH(truncate(item.name,32))}</span>
+      <span class="ddi-name">${escH(truncate(item.name,30))}${item.unit?` <span style="color:#94A3B8;font-size:10px">[${escH(item.unit)}]</span>`:''}</span>
       <span class="ddi-edi">${escH(item.ediCode)}</span>
     </div>`;
   }).join('');
@@ -966,31 +967,64 @@ function renderTableWithNames(keys) {
     </tr></thead>
     <tbody id="tBody">`;
 
+    // 범위 표시 항목 존재 여부 체크
+    let hasMultiPrice = false;
+
     display.forEach(key => {
-      const name    = getName(key);
-      const ediCode = getEdi(key);
+      const parts   = key.split('|||');
+      const name    = parts[0];
+      const ediCode = parts[1] || '';
       const items   = loadedData.filter(d => d.itemName===name && d.ediCode===ediCode);
-      const priceArr= selectedHosps.map(h=>{ const f=items.find(d=>d.hospName===h); return f?{price:f.price,date:f.date}:null; });
-      const cmap    = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.price).sort((a,b)=>a-b));
+
+      // 병원별 전체 가격 배열
+      const priceArr = selectedHosps.map(h => {
+        const hospItems = items.filter(d => d.hospName===h && d.price>0);
+        if (!hospItems.length) return null;
+        const prices = hospItems.map(d => d.price).sort((a,b) => a-b);
+        const minP   = prices[0];
+        const maxP   = prices[prices.length-1];
+        if (prices.length > 1) hasMultiPrice = true;
+        return { min: minP, max: maxP, count: prices.length, date: hospItems[0].date, all: prices };
+      });
+
+      const cmap = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.min).sort((a,b)=>a-b));
 
       html+=`<tr data-key="${escH(key)}" onclick="toggleInlineChart(this)">
         <td title="${escH(name)} (${escH(ediCode)})">
           <span class="item-name">${escH(name)}</span>
           <span class="edi-tag">EDI: ${escH(ediCode)}</span>
         </td>`;
+
       priceArr.forEach((d,i)=>{
         const isMy=selectedHosps[i]===MY_HOSP;
         if(d===null) html+=`<td class="${isMy?'my-c':''}"><span class="nd">—</span></td>`;
         else {
-          const bg=cmap.get(d.price)||'#fff';
+          const bg=cmap.get(d.min)||'#fff';
+          const isRange = d.count > 1;
           html+=`<td class="pc ${isMy?'my-c':''}" style="background:${bg}">
-            <div class="cell-price">${d.price.toLocaleString()}원</div>
-            <div class="cell-date">${d.date||'-'}</div>
+            <div class="cell-price">${isRange
+              ? `${d.min.toLocaleString()}~${d.max.toLocaleString()}원`
+              : `${d.min.toLocaleString()}원`}</div>
+            <div class="cell-date">${isRange
+              ? `<span style="color:var(--blue);font-weight:bold">${d.count}건 ▼</span>`
+              : d.date||'-'}</div>
           </td>`;
         }
       });
       html+=`</tr>`;
     });
+
+    // 범위 항목 안내문구
+    if (hasMultiPrice) {
+      html += `<tr><td colspan="${selectedHosps.length+1}" style="padding:10px 14px;background:#FFF8E1;font-size:11.5px;color:#856404;border-top:2px solid #F0D060;">
+        ⚠ <b>범위(~)로 표시된 항목</b>은 심평원이 동일 코드에 여러 금액을 등록한 경우입니다.
+        상세 항목 확인은
+        <a href="https://www.hira.or.kr/ra/medi/getHealthSurveyList.do" target="_blank" style="color:var(--blue);font-weight:bold;">
+          심평원 비급여 진료비용 정보 →
+        </a>에서 해당 병원을 직접 조회하세요.
+      </td></tr>`;
+    }
+
     html+=`</tbody></table></div>`;
 
   } else {
@@ -1068,9 +1102,11 @@ function switchTab(tab) {
    인라인 차트 (행 클릭)
 ══════════════════════════════════════════════ */
 function toggleInlineChart(tr) {
-  const key  = tr.dataset.key;
-  const name = key ? key.split('|||')[0] : tr.dataset.name;
-  const edi  = key ? key.split('|||')[1]||'' : '';
+  const key   = tr.dataset.key || '';
+  const parts = key ? key.split('|||') : [];
+  const name  = parts[0] || tr.dataset.name || '';
+  const edi   = parts[1] || '';
+  const unit  = parts[2] || '';
   document.getElementById('_cr')?.remove();
   if (activeCharts['_inline']) { activeCharts['_inline'].destroy(); delete activeCharts['_inline']; }
   document.querySelectorAll('#tBody tr.row-exp').forEach(r=>r.classList.remove('row-exp'));
@@ -1079,41 +1115,80 @@ function toggleInlineChart(tr) {
   expandedItem = key;
   tr.classList.add('row-exp');
 
-  const items = edi
-    ? loadedData.filter(d=>d.itemName===name && d.ediCode===edi)
-    : loadedData.filter(d=>d.itemName===name);
+  const items = loadedData.filter(d =>
+    d.itemName === name &&
+    (!edi || d.ediCode === edi)
+  );
+
+  // 병원별 전체 가격 수집 (다가격 지원)
   const chartData = selectedHosps
-    .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)})).filter(d=>d.rec)
-    .map(d=>({hosp:d.hosp,price:d.rec.price,date:d.rec.date,unit:d.rec.unit}))
-    .sort((a,b)=>a.price-b.price);
+    .map(h => {
+      const hospItems = items.filter(d => d.hospName===h && d.price>0).sort((a,b)=>a.price-b.price);
+      if (!hospItems.length) return null;
+      return {
+        hosp   : h,
+        price  : hospItems[0].price,           // 최저가 기준으로 정렬/색상
+        minP   : hospItems[0].price,
+        maxP   : hospItems[hospItems.length-1].price,
+        count  : hospItems.length,
+        all    : hospItems.map(d => d.price),
+        date   : hospItems[0].date,
+        unit   : hospItems[0].unit
+      };
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.minP - b.minP);
+
   if(!chartData.length) return;
 
-  const n=chartData.length,minV=chartData[0].price,maxV=chartData[n-1].price,diff=maxV-minV;
+  const n=chartData.length;
+  const minV=chartData[0].minP;
+  const maxV=Math.max(...chartData.map(d=>d.maxP));
+  const diff=maxV-minV;
   const pct=minV>0?((diff/minV)*100).toFixed(1):'0';
+  const hasMulti = chartData.some(d=>d.count>1);
   const h=Math.max(180,n*38);
+
   const colors=chartData.map((d,i)=>{
     if(d.hosp===MY_HOSP) return '#E8445A';
     const r=n===1?.5:i/(n-1);
     return `hsl(${(120*(1-r)).toFixed(0)},58%,46%)`;
   });
-  const rankHtml=chartData.slice(0,8).map((d,i)=>`
-    <div class="ri">
+
+  // 가격 순위 패널 - 다가격이면 모든 가격 나열
+  const rankHtml = chartData.slice(0,8).map((d,i)=>{
+    const priceStr = d.count > 1
+      ? `${d.minP.toLocaleString()}~${d.maxP.toLocaleString()}원 (${d.count}건)`
+      : `${d.minP.toLocaleString()}원`;
+    const allPrices = d.count > 1
+      ? `<div style="font-size:10px;color:#64748B;padding-left:27px">${d.all.map(p=>p.toLocaleString()+'원').join(' / ')}</div>`
+      : '';
+    return `<div class="ri">
       <div class="rn" style="background:${colors[i]}">${i+1}</div>
-      <div class="ri-name" style="color:${d.hosp===MY_HOSP?'var(--pink)':'var(--text)'};font-weight:${d.hosp===MY_HOSP?700:400}">${escH(d.hosp)}</div>
-      <div class="ri-price">${d.price.toLocaleString()}원</div>
-    </div>`).join('')+(n>8?`<div style="font-size:11px;color:#94A3B8;padding-top:4px">… 외 ${n-8}개 병원</div>`:'');
+      <div style="flex:1">
+        <div class="ri-name" style="color:${d.hosp===MY_HOSP?'var(--pink)':'var(--text)'};font-weight:${d.hosp===MY_HOSP?700:400}">${escH(d.hosp)}</div>
+        <div class="ri-price">${priceStr}</div>
+      </div>
+    </div>${allPrices}`;
+  }).join('') + (n>8?`<div style="font-size:11px;color:#94A3B8;padding-top:4px">… 외 ${n-8}개 병원</div>`:'');
+
+  const multiNotice = hasMulti
+    ? `<div style="font-size:10.5px;color:#856404;background:#FFF8E1;padding:7px 10px;border-radius:6px;margin-bottom:8px;line-height:1.5;">
+        ⚠ 일부 병원에 여러 금액이 등록되어 있습니다.<br>차트는 <b>최저가 기준</b>으로 비교합니다.
+       </div>` : '';
 
   const cr=document.createElement('tr'); cr.id='_cr'; cr.className='chart-row';
   cr.innerHTML=`<td colspan="${selectedHosps.length+1}"><div class="ci">
     <div class="ci-canvas" style="height:${h}px"><canvas id="_cc"></canvas></div>
     <div class="ci-side">
       <h4>${escH(truncate(name,22))}</h4>
+      ${multiNotice}
       <div class="ss"><span class="ss-l">최저가</span><span class="ss-v" style="color:#1a7a4a">${minV.toLocaleString()}원</span></div>
       <div class="ss"><span class="ss-l">최고가</span><span class="ss-v" style="color:var(--pink)">${maxV.toLocaleString()}원</span></div>
       <div class="ss"><span class="ss-l">격차</span><span class="ss-v">${diff.toLocaleString()}원</span></div>
       <div class="ss"><span class="ss-l">격차율</span><span class="ss-v">${pct}%</span></div>
       <div class="ss"><span class="ss-l">비교 병원</span><span class="ss-v">${n}개</span></div>
-      <div class="rk-t" style="margin-top:9px">가격 순위</div>${rankHtml}
+      <div class="rk-t" style="margin-top:9px">병원별 금액</div>${rankHtml}
     </div>
   </div></td>`;
   tr.insertAdjacentElement('afterend',cr);
@@ -1121,7 +1196,7 @@ function toggleInlineChart(tr) {
   activeCharts['_inline']=new Chart(document.getElementById('_cc').getContext('2d'),{
     type:'bar',
     data:{labels:chartData.map(d=>d.hosp),datasets:[{
-      data:chartData.map(d=>d.price),backgroundColor:colors,
+      data:chartData.map(d=>d.minP),backgroundColor:colors,
       borderColor:chartData.map(d=>d.hosp===MY_HOSP?'#C0303F':'transparent'),
       borderWidth:chartData.map(d=>d.hosp===MY_HOSP?2:0),
       borderRadius:5,borderSkipped:false,
@@ -1129,8 +1204,12 @@ function toggleInlineChart(tr) {
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{
-        label:c=>` ${c.parsed.x.toLocaleString()}원`,
-        afterLabel:c=>{const d=chartData[c.dataIndex];return d?`  등록일: ${d.date}  단위: ${d.unit}`:''}
+        label:c=>{
+          const d=chartData[c.dataIndex];
+          return d.count>1
+            ? ` ${d.minP.toLocaleString()}~${d.maxP.toLocaleString()}원 (${d.count}건)`
+            : ` ${d.minP.toLocaleString()}원`;
+        }
       }}},
       scales:{
         x:{beginAtZero:false,min:Math.max(0,minV*.88),
@@ -1154,9 +1233,16 @@ function exportExcel() {
   const headers=['항목명','EDI코드','분류',...selectedHosps.flatMap(h=>[`${h}_단가(원)`,`${h}_등록일`])];
   const rows=[headers];
   keys.forEach(key=>{
-    const name=getName(key), edi=getEdi(key);
-    const items=loadedData.filter(d=>d.itemName===name&&d.ediCode===edi);
-    const row=[name,edi,items[0]?.category||'-'];
+    const parts = key.split('|||');
+    const name  = parts[0];
+    const edi   = parts[1] || '-';
+    const unit  = parts[2] || '';
+    const items = loadedData.filter(d =>
+      d.itemName === name &&
+      d.ediCode  === edi &&
+      (unit === '' || (d.unit||'') === unit)
+    );
+    const row=[name + (unit?` [${unit}]`:''), edi, items[0]?.category||'-'];
     selectedHosps.forEach(h=>{const f=items.find(d=>d.hospName===h);row.push(f?f.price:'');row.push(f?f.date:'');});
     rows.push(row);
   });
