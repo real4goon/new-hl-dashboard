@@ -756,10 +756,12 @@ function onSearchInput(e) {
   const isEdiCode = keywords.length === 1 && /^[A-Za-z][A-Za-z0-9]{4,}$/.test(keywords[0]);
 
   if (isEdiCode) {
-    // EDI 코드: 정확 일치 우선 → 포함 일치 순으로 정렬
+    // EDI 코드: loadedData 전체에서 직접 검색 (allItems의 EDI는 첫 병원 기준이라 누락 가능)
     const upper = keywords[0].toUpperCase();
-    const exact   = allItems.filter(i => i.ediCode.toUpperCase() === upper);
-    const partial = allItems.filter(i => i.ediCode.toUpperCase() !== upper && i.ediCode.toUpperCase().includes(upper));
+    const exactNames   = new Set(loadedData.filter(d => d.ediCode.toUpperCase() === upper).map(d => d.itemName));
+    const partialNames = new Set(loadedData.filter(d => d.ediCode.toUpperCase() !== upper && d.ediCode.toUpperCase().includes(upper)).map(d => d.itemName));
+    const exact   = allItems.filter(i => exactNames.has(i.name));
+    const partial = allItems.filter(i => partialNames.has(i.name));
     ddItems = [...exact, ...partial].slice(0, 100);
 
   } else if (keywords.length === 1) {
@@ -773,7 +775,8 @@ function onSearchInput(e) {
       // 각 키워드도 EDI 코드면 정확 검색, 아니면 퍼지
       if (/^[A-Za-z][A-Za-z0-9]{4,}$/.test(kw)) {
         const u = kw.toUpperCase();
-        result = result.filter(i => i.ediCode.toUpperCase().includes(u));
+        const matched = new Set(loadedData.filter(d => d.ediCode.toUpperCase().includes(u)).map(d => d.itemName));
+        result = result.filter(i => matched.has(i.name));
       } else {
         const matched = new Set(
           fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.name) : allItems.map(i=>i.name)
