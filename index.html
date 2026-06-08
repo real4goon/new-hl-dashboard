@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.2</title>
+<title>비급여 비교 대시보드 V5.3</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -422,7 +422,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.2</p>
+      <p>서울·경기 상급종합병원 V5.3</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1336,38 +1336,67 @@ function exportExcel() {
   const getName = k => k.split('|||')[0];
   const getEdi  = k => k.split('|||')[1]||'-';
 
-  // 병원 세로 배치: 행=병원, 열=항목
-  const headers = ['병원명', ...keys.flatMap(k=>{
-    const name = getName(k), edi = getEdi(k);
-    const label = name.length>18 ? name.slice(0,17)+'…' : name;
-    return [`${label}(${edi})`, '등록일', '전체금액(건별)'];
+  // 항목별 최대 가격 건수 계산 (동적 열 수 결정)
+  const maxCounts = keys.map(k => {
+    const name=getName(k), edi=getEdi(k);
+    return Math.max(1, ...selectedHosps.map(h =>
+      loadedData.filter(d=>d.itemName===name&&d.ediCode===edi&&d.hospName===h&&d.price>0).length
+    ));
+  });
+
+  // 헤더: 단일가 → [항목(EDI), 등록일] / 다가 → [항목(EDI), 등록일, 가격1, 가격2, ...]
+  const headers = ['병원명', ...keys.flatMap((k, ki) => {
+    const name=getName(k), edi=getEdi(k);
+    const label = (name.length>18 ? name.slice(0,17)+'…' : name) + '\n(' + edi + ')';
+    const n = maxCounts[ki];
+    if (n <= 1) return [label, '등록일'];
+    return [label, '등록일', ...Array.from({length:n}, (_,j)=>`가격${j+1}`)];
   })];
+
   const rows = [headers];
 
-  selectedHosps.forEach(hosp=>{
+  selectedHosps.forEach(hosp => {
     const row = [hosp];
-    keys.forEach(k=>{
-      const name = getName(k), edi = getEdi(k);
+    keys.forEach((k, ki) => {
+      const name=getName(k), edi=getEdi(k);
       const items = loadedData.filter(d=>d.itemName===name&&d.ediCode===edi);
       const hi = items.filter(d=>d.hospName===hosp&&d.price>0);
-      if(!hi.length){ row.push('', '-', ''); return; }
+      const maxN = maxCounts[ki];
+
+      if (!hi.length) {
+        row.push('', '-');
+        if (maxN > 1) for(let j=0;j<maxN;j++) row.push('');
+        return;
+      }
+
       const prices = hi.map(d=>d.price).sort((a,b)=>a-b);
       const minP=prices[0], maxP=prices[prices.length-1];
-      // 단가: 단일이면 숫자, 범위이면 min~max
+
+      // 대표 단가 (단일이면 숫자, 범위면 min~max)
       row.push(prices.length>1 ? `${minP}~${maxP}` : minP);
       row.push(hi[0].date||'-');
-      // 전체 건별 금액: 모든 가격 나열
-      row.push(prices.length>1 ? prices.join(' / ') : '');
+
+      // 다가 항목: 건별 가격 각 열에
+      if (maxN > 1) {
+        for (let j=0; j<maxN; j++) row.push(prices[j] ?? '');
+      }
     });
     rows.push(row);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:20}, ...keys.flatMap(()=>[{wch:24},{wch:12},{wch:40}])];
+  ws['!cols'] = [
+    {wch:20},
+    ...keys.flatMap((k,ki) => {
+      const n = maxCounts[ki];
+      if (n<=1) return [{wch:26},{wch:12}];
+      return [{wch:26},{wch:12},...Array.from({length:n},()=>({wch:12}))];
+    })
+  ];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '비급여비교');
 
-  // 수집정보 시트
   const mrows=[['병원명','수집일','항목수']];
   selectedHosps.forEach(h=>{const info=metadata[h];if(info)mrows.push([h,info.updated,info.count]);});
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mrows),'수집정보');
