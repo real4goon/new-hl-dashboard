@@ -969,6 +969,16 @@ function renderTableWithNames(keys) {
   const maxP = allPrices.length ? Math.max(...allPrices) : 0;
   const avgP = allPrices.length ? Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length) : 0;
 
+  const chartModeBar = currentTab==='chart'
+    ? '<div class="chart-mode-bar">' +
+      '<span>기준값:</span>' +
+      '<button class="cmode-btn ' + (chartGridMode==='min'?'active':'') + '" onclick="setChartGridMode(\'min\')">최솟값</button>' +
+      '<button class="cmode-btn ' + (chartGridMode==='avg'?'active':'') + '" onclick="setChartGridMode(\'avg\')">평균값</button>' +
+      '<button class="cmode-btn ' + (chartGridMode==='max'?'active':'') + '" onclick="setChartGridMode(\'max\')">최댓값</button>' +
+      '<span style="font-size:11px;color:#94A3B8;margin-left:6px;">※ 다가격 항목에 적용됩니다</span>' +
+      '</div>'
+    : '';
+
   let html=`
   <div class="res-header">
     <div class="st"><span class="st-l">선택 항목</span><span class="st-v">${keys.length}개</span></div>
@@ -984,14 +994,7 @@ function renderTableWithNames(keys) {
     <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
     <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
   </div>
-  ${currentTab==='chart'?`
-  <div class="chart-mode-bar">
-    <span>기준값:</span>
-    <button class="cmode-btn ${chartGridMode==='min'?'active':''}" onclick="setChartGridMode('min')">최솟값</button>
-    <button class="cmode-btn ${chartGridMode==='avg'?'active':''}" onclick="setChartGridMode('avg')">평균값</button>
-    <button class="cmode-btn ${chartGridMode==='max'?'active':''}" onclick="setChartGridMode('max')">최댓값</button>
-    <span style="font-size:11px;color:#94A3B8;margin-left:6px;">※ 다가격 항목에 적용됩니다</span>
-  </div>`:''}`;
+  ${chartModeBar}`;
 
   if (currentTab==='table') {
     html += `
@@ -1359,13 +1362,6 @@ function exportExcel() {
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mrows),'수집정보');
   XLSX.writeFile(wb,'비급여비교_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-  XLSX.utils.book_append_sheet(wb, ws, '비급여비교');
-  const mrows=[['병원명','수집일','항목수']];
-  selectedHosps.forEach(h=>{const info=metadata[h];if(info)mrows.push([h,info.updated,info.count]);});
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mrows),'수집정보');
-  XLSX.writeFile(wb,`비급여비교_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
 /* ══════════════════════════════════════════════
    유틸
 ══════════════════════════════════════════════ */
