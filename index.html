@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>비급여 비교 대시보드 V5.2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -1001,12 +1002,13 @@ function renderTableWithNames(keys) {
         else {
           const bg=cmap.get(d.min)||'#fff';
           const isRange = d.count > 1;
+          const avg = Math.round(d.all.reduce((a,b)=>a+b,0)/d.all.length);
           html+=`<td class="pc ${isMy?'my-c':''}" style="background:${bg}">
-            <div class="cell-price">${isRange
-              ? `${d.min.toLocaleString()}~${d.max.toLocaleString()}원`
+            <div class="cell-price" style="font-size:${isRange?'11px':'13px'}">${isRange
+              ? `${d.min.toLocaleString()}원<br>~${d.max.toLocaleString()}원`
               : `${d.min.toLocaleString()}원`}</div>
             <div class="cell-date">${isRange
-              ? `<span style="color:var(--blue);font-weight:bold">${d.count}건 ▼</span>`
+              ? `<span style="color:#475569">평균 ${avg.toLocaleString()}원</span> <span style="color:var(--blue);font-weight:bold">(${d.count}건)</span>`
               : d.date||'-'}</div>
           </td>`;
         }
@@ -1030,18 +1032,22 @@ function renderTableWithNames(keys) {
   } else {
     // 차트 그리드
     html+=`<div class="chart-grid" id="chartGrid">`;
-    display.forEach((name,gi)=>{
-      const items = loadedData.filter(d=>d.itemName===name);
-      const chartData = selectedHosps
-        .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)}))
-        .filter(d=>d.rec)
-        .map(d=>({hosp:d.hosp,price:d.rec.price}))
-        .sort((a,b)=>a.price-b.price);
+    display.forEach((key,gi)=>{
+      const parts   = key.split('|||');
+      const name    = parts[0], ediCode = parts[1]||'';
+      const items   = loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode);
+      const chartData = selectedHosps.map(h=>{
+        const hi = items.filter(d=>d.hospName===h&&d.price>0);
+        if(!hi.length) return null;
+        const prices = hi.map(d=>d.price);
+        const avg = Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
+        return {hosp:h, price:hi[0].price, minP:Math.min(...prices), maxP:Math.max(...prices), avg, count:prices.length};
+      }).filter(Boolean).sort((a,b)=>a.avg-b.avg);
       if(!chartData.length) return;
-      const canvasH = Math.max(140, chartData.length*30);
+      const canvasH = Math.min(Math.max(120, chartData.length*28), 360);
       html+=`<div class="chart-card">
         <div class="chart-card-title" title="${escH(name)}">${escH(truncate(name,28))}</div>
-        <div class="chart-card-sub">${items[0]?.ediCode||''} · ${chartData.length}개 병원</div>
+        <div class="chart-card-sub">${ediCode} · ${chartData.length}개 병원 · 평균값 기준</div>
         <div style="position:relative;height:${canvasH}px">
           <canvas id="gc-${gi}"></canvas>
         </div>
@@ -1054,14 +1060,18 @@ function renderTableWithNames(keys) {
 
   // 차트 그리드 렌더
   if (currentTab==='chart') {
-    display.forEach((name,gi)=>{
+    display.forEach((key,gi)=>{
       const canvas = document.getElementById(`gc-${gi}`); if(!canvas) return;
-      const items  = loadedData.filter(d=>d.itemName===name);
-      const chartData = selectedHosps
-        .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)}))
-        .filter(d=>d.rec)
-        .map(d=>({hosp:d.hosp,price:d.rec.price}))
-        .sort((a,b)=>a.price-b.price);
+      const parts   = key.split('|||');
+      const name    = parts[0], ediCode = parts[1]||'';
+      const items   = loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode);
+      const chartData = selectedHosps.map(h=>{
+        const hi = items.filter(d=>d.hospName===h&&d.price>0);
+        if(!hi.length) return null;
+        const prices = hi.map(d=>d.price);
+        const avg = Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
+        return {hosp:h, avg, minP:Math.min(...prices), maxP:Math.max(...prices), count:prices.length};
+      }).filter(Boolean).sort((a,b)=>a.avg-b.avg);
       if(!chartData.length) return;
       const n = chartData.length;
       const colors = chartData.map((d,i)=>{
@@ -1071,19 +1081,35 @@ function renderTableWithNames(keys) {
       });
       activeCharts[`gc-${gi}`] = new Chart(canvas.getContext('2d'),{
         type:'bar',
+        plugins:[ChartDataLabels],
         data:{labels:chartData.map(d=>d.hosp),datasets:[{
-          data:chartData.map(d=>d.price),
+          data:chartData.map(d=>d.avg),
           backgroundColor:colors,
           borderRadius:4,borderSkipped:false,
         }]},
         options:{
           indexAxis:'y',responsive:true,maintainAspectRatio:false,
-          plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x.toLocaleString()}원`}}},
+          layout:{ padding:{ right: 70 } },
+          plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{label:c=>{
+              const d=chartData[c.dataIndex];
+              return d.count>1
+                ? ` 평균 ${d.avg.toLocaleString()}원 (${d.minP.toLocaleString()}~${d.maxP.toLocaleString()})`
+                : ` ${d.avg.toLocaleString()}원`;
+            }}},
+            datalabels:{
+              anchor:'end', align:'end', clip:false,
+              formatter:v=>v>=10000?(v/10000).toFixed(0)+'만':v.toLocaleString(),
+              font:{size:9,weight:'bold'},
+              color:ctx=>chartData[ctx.dataIndex]?.hosp===MY_HOSP?'#C0303F':'#334155',
+            }
+          },
           scales:{
-            x:{beginAtZero:false,min:Math.max(0,chartData[0].price*.88),
-               ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:10}},
+            x:{beginAtZero:false,min:Math.max(0,chartData[0].avg*.88),
+               ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:9}},
                grid:{color:'#EEF2F7'}},
-            y:{ticks:{font:ctx=>({size:11,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
+            y:{ticks:{font:ctx=>({size:10,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
                       color:ctx=>chartData[ctx.index]?.hosp===MY_HOSP?'#E8445A':'#334155'},
                grid:{display:false}}
           }
@@ -1091,6 +1117,27 @@ function renderTableWithNames(keys) {
       });
     });
   }
+}
+
+function toggleAvgChart() {
+  const btn = document.getElementById('avgChartBtn');
+  const chart = activeCharts['_inline'];
+  if (!chart) return;
+
+  const isAvg = btn.dataset.mode === 'avg';
+  if (isAvg) {
+    // 최저가로 되돌리기
+    chart.data.datasets[0].data = chart._minData;
+    btn.textContent = '📊 평균값으로 차트 다시 그리기';
+    btn.dataset.mode = 'min';
+  } else {
+    // 평균값으로 전환
+    if (!chart._avgData) return;
+    chart.data.datasets[0].data = chart._avgData;
+    btn.textContent = '📊 최저가 기준으로 되돌리기';
+    btn.dataset.mode = 'avg';
+  }
+  chart.update();
 }
 
 function switchTab(tab) {
@@ -1125,13 +1172,16 @@ function toggleInlineChart(tr) {
     .map(h => {
       const hospItems = items.filter(d => d.hospName===h && d.price>0).sort((a,b)=>a.price-b.price);
       if (!hospItems.length) return null;
+      const prices = hospItems.map(d => d.price);
+      const avg    = Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
       return {
         hosp   : h,
-        price  : hospItems[0].price,           // 최저가 기준으로 정렬/색상
+        price  : hospItems[0].price,
         minP   : hospItems[0].price,
         maxP   : hospItems[hospItems.length-1].price,
-        count  : hospItems.length,
-        all    : hospItems.map(d => d.price),
+        avg,
+        count  : prices.length,
+        all    : prices,
         date   : hospItems[0].date,
         unit   : hospItems[0].unit
       };
@@ -1147,7 +1197,7 @@ function toggleInlineChart(tr) {
   const diff=maxV-minV;
   const pct=minV>0?((diff/minV)*100).toFixed(1):'0';
   const hasMulti = chartData.some(d=>d.count>1);
-  const h=Math.max(180,n*38);
+  const h = Math.min(Math.max(160, n * 30), 400); // 최대 400px로 제한
 
   const colors=chartData.map((d,i)=>{
     if(d.hosp===MY_HOSP) return '#E8445A';
@@ -1174,7 +1224,11 @@ function toggleInlineChart(tr) {
 
   const multiNotice = hasMulti
     ? `<div style="font-size:10.5px;color:#856404;background:#FFF8E1;padding:7px 10px;border-radius:6px;margin-bottom:8px;line-height:1.5;">
-        ⚠ 일부 병원에 여러 금액이 등록되어 있습니다.<br>차트는 <b>최저가 기준</b>으로 비교합니다.
+        ⚠ 일부 병원에 여러 금액이 등록되어 있습니다.<br>
+        <button onclick="toggleAvgChart()" id="avgChartBtn"
+          style="margin-top:5px;padding:4px 10px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">
+          📊 평균값으로 차트 다시 그리기
+        </button>
        </div>` : '';
 
   const cr=document.createElement('tr'); cr.id='_cr'; cr.className='chart-row';
@@ -1193,8 +1247,9 @@ function toggleInlineChart(tr) {
   </div></td>`;
   tr.insertAdjacentElement('afterend',cr);
 
-  activeCharts['_inline']=new Chart(document.getElementById('_cc').getContext('2d'),{
+  const inlineChart = new Chart(document.getElementById('_cc').getContext('2d'),{
     type:'bar',
+    plugins:[ChartDataLabels],
     data:{labels:chartData.map(d=>d.hosp),datasets:[{
       data:chartData.map(d=>d.minP),backgroundColor:colors,
       borderColor:chartData.map(d=>d.hosp===MY_HOSP?'#C0303F':'transparent'),
@@ -1203,17 +1258,33 @@ function toggleInlineChart(tr) {
     }]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{
-        label:c=>{
-          const d=chartData[c.dataIndex];
-          return d.count>1
-            ? ` ${d.minP.toLocaleString()}~${d.maxP.toLocaleString()}원 (${d.count}건)`
-            : ` ${d.minP.toLocaleString()}원`;
+      layout:{ padding:{ right: 80 } },
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label:c=>{
+            const d=chartData[c.dataIndex];
+            return d.count>1
+              ? ` 최저 ${d.minP.toLocaleString()} / 평균 ${d.avg.toLocaleString()} / 최고 ${d.maxP.toLocaleString()}원`
+              : ` ${d.minP.toLocaleString()}원`;
+          }
+        }},
+        datalabels:{
+          anchor:'end',
+          align:'end',
+          clip:false,
+          formatter:(v,ctx)=>{
+            const d=chartData[ctx.dataIndex];
+            if(!d) return '';
+            return v>=10000 ? (v/10000).toFixed(0)+'만' : v.toLocaleString();
+          },
+          font:{size:10,weight:'bold'},
+          color:ctx=>chartData[ctx.dataIndex]?.hosp===MY_HOSP?'#C0303F':'#334155',
         }
-      }}},
+      },
       scales:{
         x:{beginAtZero:false,min:Math.max(0,minV*.88),
-           ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:11}},
+           ticks:{callback:v=>v>=100000?(v/10000).toFixed(0)+'만':v.toLocaleString(),font:{size:10}},
            grid:{color:'#EEF2F7'}},
         y:{ticks:{font:ctx=>({size:12,weight:chartData[ctx.index]?.hosp===MY_HOSP?'bold':'normal'}),
                   color:ctx=>chartData[ctx.index]?.hosp===MY_HOSP?'#E8445A':'#334155'},
@@ -1221,6 +1292,11 @@ function toggleInlineChart(tr) {
       }
     }
   });
+
+  // 평균/최저가 전환용 데이터 저장
+  inlineChart._minData = chartData.map(d=>d.minP);
+  inlineChart._avgData = chartData.map(d=>d.avg);
+  activeCharts['_inline'] = inlineChart;
 }
 
 /* ══════════════════════════════════════════════
