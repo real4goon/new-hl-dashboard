@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.3</title>
+<title>비급여 비교 대시보드 V5.4</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -1065,7 +1065,7 @@ function renderTableWithNames(keys) {
       html += `<tr><td colspan="${selectedHosps.length+1}" style="padding:10px 14px;background:#FFF8E1;font-size:11.5px;color:#856404;border-top:2px solid #F0D060;">
         ⚠ <b>범위(~)로 표시된 항목</b>은 심평원이 동일 코드에 여러 금액을 등록한 경우입니다.
         상세 항목 확인은
-        <a href="https://www.hira.or.kr/ra/medi/getHealthSurveyList.do" target="_blank" style="color:var(--blue);font-weight:bold;">
+        <a href="https://www.hira.or.kr/npay/index.do?pgmid=HIRAA030009000000&WT.gnb=%EB%B9%84%EA%B8%89%EC%97%AC%EC%A7%84%EB%A3%8C%EB%B9%84%EC%A0%95%EB%B3%B4#app%2Frb%2FnpayDamtInfoList" target="_blank" style="color:var(--blue);font-weight:bold;">
           심평원 비급여 진료비용 정보 →
         </a>에서 해당 병원을 직접 조회하세요.
       </td></tr>`;
@@ -1344,13 +1344,13 @@ function exportExcel() {
     ));
   });
 
-  // 헤더: 단일가 → [항목(EDI), 등록일] / 다가 → [항목(EDI), 등록일, 가격1, 가격2, ...]
+  // 헤더: 단일가 → [항목명, EDI, 등록일] / 다가 → [항목명, EDI, 등록일, 가격1, 가격2, ...]
   const headers = ['병원명', ...keys.flatMap((k, ki) => {
     const name=getName(k), edi=getEdi(k);
-    const label = (name.length>18 ? name.slice(0,17)+'…' : name) + '\n(' + edi + ')';
+    const label = name.length>18 ? name.slice(0,17)+'…' : name;
     const n = maxCounts[ki];
-    if (n <= 1) return [label, '등록일'];
-    return [label, '등록일', ...Array.from({length:n}, (_,j)=>`가격${j+1}`)];
+    if (n <= 1) return [label, edi, '등록일'];
+    return [label, edi, '등록일', ...Array.from({length:n}, (_,j)=>`가격${j+1}`)];
   })];
 
   const rows = [headers];
@@ -1364,7 +1364,7 @@ function exportExcel() {
       const maxN = maxCounts[ki];
 
       if (!hi.length) {
-        row.push('', '-');
+        row.push('', edi, '-');
         if (maxN > 1) for(let j=0;j<maxN;j++) row.push('');
         return;
       }
@@ -1372,8 +1372,8 @@ function exportExcel() {
       const prices = hi.map(d=>d.price).sort((a,b)=>a-b);
       const minP=prices[0], maxP=prices[prices.length-1];
 
-      // 대표 단가 (단일이면 숫자, 범위면 min~max)
       row.push(prices.length>1 ? `${minP}~${maxP}` : minP);
+      row.push(edi);
       row.push(hi[0].date||'-');
 
       // 다가 항목: 건별 가격 각 열에
@@ -1389,8 +1389,8 @@ function exportExcel() {
     {wch:20},
     ...keys.flatMap((k,ki) => {
       const n = maxCounts[ki];
-      if (n<=1) return [{wch:26},{wch:12}];
-      return [{wch:26},{wch:12},...Array.from({length:n},()=>({wch:12}))];
+      if (n<=1) return [{wch:30},{wch:14},{wch:12}];
+      return [{wch:30},{wch:14},{wch:12},...Array.from({length:n},()=>({wch:12}))];
     })
   ];
 
