@@ -12,10 +12,19 @@
 import requests
 import json
 import os
+import sys
 import time
 import argparse
+import urllib3
 from xml.etree import ElementTree as ET
 from datetime import datetime
+
+# Windows 터미널 UTF-8 출력 강제
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+# 사설 인증서 환경에서 SSL 경고 억제
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ═══════════════════════════════════════════════════════
 #  설정 (필요 시 수정)
@@ -85,7 +94,7 @@ def fetch_hospital(display_name: str, search_name: str) -> list:
         resp = None
         for attempt in range(cfg["max_retry"]):
             try:
-                resp = requests.get(cfg["base_url"], params=params, timeout=cfg["timeout"])
+                resp = requests.get(cfg["base_url"], params=params, timeout=cfg["timeout"], verify=False)
                 resp.raise_for_status()
                 break
             except Exception as e:
