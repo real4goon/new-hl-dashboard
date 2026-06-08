@@ -639,11 +639,11 @@ function getCheckedHosps() {
 function buildSearchCards() {
   const html = `
     <div class="search-card">
-      <div class="search-card-title">🔍 비급여 항목 검색 — 검색어 입력 후 항목 선택 → [이 항목들 비교] 클릭 &nbsp;<span style="font-weight:400;color:#94A3B8;">※ 스페이스바로 AND 검색 가능 (예: MRI 근골격계)</span></div>
+      <div class="search-card-title">🔍 비급여 항목 검색 &nbsp;<span style="font-weight:400;color:#94A3B8;">항목명 → 퍼지검색 &nbsp;|&nbsp; EDI코드(영문+숫자) → 정확검색 &nbsp;|&nbsp; 스페이스 → AND 검색 (예: MRI 근골격계)</span></div>
       <div class="search-row">
         <div class="search-wrap">
           <input class="search-input" id="searchInput"
-                 placeholder="예: MRI &nbsp;→&nbsp; MRI 근골격계 (AND 검색)"
+                 placeholder="항목명(퍼지검색) 또는 EDI코드(정확검색) | 스페이스 = AND"
                  autocomplete="off" ${loadedData.length?'':'disabled'}
                  oninput="onSearchInput(event)" onclick="event.stopPropagation()">
           <div class="dropdown" id="dropdown">
@@ -750,29 +750,46 @@ function onSearchInput(e) {
   const raw = document.getElementById('searchInput').value.trim();
   if (!raw) { closeDropdown(); return; }
 
-  // 스페이스 구분 AND 검색
   const keywords = raw.split(/\s+/).filter(Boolean);
 
-  if (keywords.length === 1) {
-    // 단일 키워드: 기존 퍼지 검색
+  // EDI 코드 패턴 감지: 영문+숫자 조합, 공백 없음, 5자 이상
+  const isEdiCode = keywords.length === 1 && /^[A-Za-z][A-Za-z0-9]{4,}$/.test(keywords[0]);
+
+  if (isEdiCode) {
+    // EDI 코드: 정확 일치 우선 → 포함 일치 순으로 정렬
+    const upper = keywords[0].toUpperCase();
+    const exact   = allItems.filter(i => i.ediCode.toUpperCase() === upper);
+    const partial = allItems.filter(i => i.ediCode.toUpperCase() !== upper && i.ediCode.toUpperCase().includes(upper));
+    ddItems = [...exact, ...partial].slice(0, 100);
+
+  } else if (keywords.length === 1) {
+    // 단일 키워드: 항목명 퍼지 검색
     ddItems = fuse ? fuse.search(keywords[0], {limit:100}).map(r=>r.item) : allItems.slice(0,100);
+
   } else {
-    // 복수 키워드: 각 키워드를 퍼지 검색 후 AND 교집합
+    // 복수 키워드 AND 검색 (스페이스 구분)
     let result = allItems;
     keywords.forEach(kw => {
-      const matched = new Set(
-        fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.name) : allItems.map(i=>i.name)
-      );
-      result = result.filter(item => matched.has(item.name));
+      // 각 키워드도 EDI 코드면 정확 검색, 아니면 퍼지
+      if (/^[A-Za-z][A-Za-z0-9]{4,}$/.test(kw)) {
+        const u = kw.toUpperCase();
+        result = result.filter(i => i.ediCode.toUpperCase().includes(u));
+      } else {
+        const matched = new Set(
+          fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.name) : allItems.map(i=>i.name)
+        );
+        result = result.filter(i => matched.has(i.name));
+      }
     });
     ddItems = result.slice(0, 100);
   }
 
   // 이미 선택된 항목 상단에 표시
   const selSet = new Set([...selectedNames]);
-  const selected   = ddItems.filter(i => selSet.has(i.name));
-  const unselected = ddItems.filter(i => !selSet.has(i.name));
-  ddItems = [...selected, ...unselected];
+  ddItems = [
+    ...ddItems.filter(i => selSet.has(i.name)),
+    ...ddItems.filter(i => !selSet.has(i.name))
+  ];
 
   renderDropdown();
   openDropdown();
@@ -882,7 +899,14 @@ function renderTableWithNames(names) {
 
   const display   = names.slice(0,MAX_ROWS);
   const isLimited = names.length>MAX_ROWS;
-  const allPrices = loadedData.filter(d=>names.includes(d.itemName)&&d.price>0).map(d=>d.price);
+  // 병원당 첫 번째 가격만 사용 (테이블/차트와 동일 기준)
+  const priceMap = new Map();
+  loadedData.forEach(d => {
+    if (!names.includes(d.itemName) || d.price <= 0) return;
+    const key = `${d.itemName}|${d.hospName}`;
+    if (!priceMap.has(key)) priceMap.set(key, d.price);
+  });
+  const allPrices = [...priceMap.values()];
   const minP=allPrices.length?Math.min(...allPrices):0;
   const maxP=allPrices.length?Math.max(...allPrices):0;
   const avgP=allPrices.length?Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length):0;
