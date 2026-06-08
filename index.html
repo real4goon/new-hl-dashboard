@@ -760,12 +760,23 @@ function onSearchInput(e) {
   const isEdiCode = keywords.length === 1 && /^[A-Za-z][A-Za-z0-9]{4,}$/.test(keywords[0]);
 
   if (isEdiCode) {
-    // EDI 코드: allItems에서 ediCode로 직접 필터
-    // allItems가 (항목명+EDI) 키 구조이므로, 같은 EDI의 모든 항목명이 포함됨
-    const upper = keywords[0].toUpperCase();
-    const exact   = allItems.filter(i => i.ediCode.toUpperCase() === upper);
-    const partial = allItems.filter(i => i.ediCode.toUpperCase() !== upper && i.ediCode.toUpperCase().includes(upper));
-    ddItems = [...exact, ...partial].slice(0, 100);
+    // EDI 코드: loadedData 전체 직접 스캔
+    // allItems는 첫 병원 기준이라 누락 가능 → loadedData 직접 읽어야 정확
+    const upper    = keywords[0].toUpperCase();
+    const exactMap = new Map();
+    const partMap  = new Map();
+
+    loadedData.forEach(d => {
+      const ediUp  = (d.ediCode || '').toUpperCase();
+      const k      = d.itemName + '|||' + d.ediCode;
+      if (ediUp === upper) {
+        if (!exactMap.has(k)) exactMap.set(k, { key: k, name: d.itemName, ediCode: d.ediCode });
+      } else if (ediUp.includes(upper)) {
+        if (!partMap.has(k))  partMap.set(k,  { key: k, name: d.itemName, ediCode: d.ediCode });
+      }
+    });
+
+    ddItems = [...exactMap.values(), ...partMap.values()].slice(0, 100);
 
   } else if (keywords.length === 1) {
     // 단일 키워드: 항목명 퍼지 검색
