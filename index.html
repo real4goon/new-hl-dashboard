@@ -719,9 +719,13 @@ async function loadSelectedData() {
     return;
   }
 
+  // (항목명 + EDI코드) 조합으로 중복 제거 → 같은 EDI라도 항목명 다르면 별도 표시
   const seen = new Map();
-  loadedData.forEach(d => { if (!seen.has(d.itemName)) seen.set(d.itemName, d.ediCode); });
-  allItems = [...seen.entries()].map(([n,e])=>({name:n,ediCode:e})).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  loadedData.forEach(d => {
+    const key = d.itemName + '|||' + d.ediCode;
+    if (!seen.has(key)) seen.set(key, { key, name: d.itemName, ediCode: d.ediCode });
+  });
+  allItems = [...seen.values()].sort((a,b) => a.name.localeCompare(b.name,'ko'));
   fuse = new Fuse(allItems, {keys:['name','ediCode'],threshold:.35,minMatchCharLength:1});
 
   const msg = `✅ ${loadedData.length.toLocaleString()}건 / ${allItems.length.toLocaleString()}개 항목`;
@@ -756,12 +760,11 @@ function onSearchInput(e) {
   const isEdiCode = keywords.length === 1 && /^[A-Za-z][A-Za-z0-9]{4,}$/.test(keywords[0]);
 
   if (isEdiCode) {
-    // EDI 코드: loadedData 전체에서 직접 검색 (allItems의 EDI는 첫 병원 기준이라 누락 가능)
+    // EDI 코드: allItems에서 ediCode로 직접 필터
+    // allItems가 (항목명+EDI) 키 구조이므로, 같은 EDI의 모든 항목명이 포함됨
     const upper = keywords[0].toUpperCase();
-    const exactNames   = new Set(loadedData.filter(d => d.ediCode.toUpperCase() === upper).map(d => d.itemName));
-    const partialNames = new Set(loadedData.filter(d => d.ediCode.toUpperCase() !== upper && d.ediCode.toUpperCase().includes(upper)).map(d => d.itemName));
-    const exact   = allItems.filter(i => exactNames.has(i.name));
-    const partial = allItems.filter(i => partialNames.has(i.name));
+    const exact   = allItems.filter(i => i.ediCode.toUpperCase() === upper);
+    const partial = allItems.filter(i => i.ediCode.toUpperCase() !== upper && i.ediCode.toUpperCase().includes(upper));
     ddItems = [...exact, ...partial].slice(0, 100);
 
   } else if (keywords.length === 1) {
@@ -772,16 +775,14 @@ function onSearchInput(e) {
     // 복수 키워드 AND 검색 (스페이스 구분)
     let result = allItems;
     keywords.forEach(kw => {
-      // 각 키워드도 EDI 코드면 정확 검색, 아니면 퍼지
       if (/^[A-Za-z][A-Za-z0-9]{4,}$/.test(kw)) {
         const u = kw.toUpperCase();
-        const matched = new Set(loadedData.filter(d => d.ediCode.toUpperCase().includes(u)).map(d => d.itemName));
-        result = result.filter(i => matched.has(i.name));
+        result = result.filter(i => i.ediCode.toUpperCase().includes(u));
       } else {
         const matched = new Set(
-          fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.name) : allItems.map(i=>i.name)
+          fuse ? fuse.search(kw, {limit:300}).map(r=>r.item.key) : allItems.map(i=>i.key)
         );
-        result = result.filter(i => matched.has(i.name));
+        result = result.filter(i => matched.has(i.key));
       }
     });
     ddItems = result.slice(0, 100);
@@ -790,8 +791,8 @@ function onSearchInput(e) {
   // 이미 선택된 항목 상단에 표시
   const selSet = new Set([...selectedNames]);
   ddItems = [
-    ...ddItems.filter(i => selSet.has(i.name)),
-    ...ddItems.filter(i => !selSet.has(i.name))
+    ...ddItems.filter(i => selSet.has(i.key)),
+    ...ddItems.filter(i => !selSet.has(i.key))
   ];
 
   renderDropdown();
@@ -803,10 +804,10 @@ function renderDropdown() {
   if (!cnt||!lst) return;
   cnt.textContent = `${ddItems.length}개 항목`;
   lst.innerHTML = ddItems.map((item,idx) => {
-    const chk = ddSelected.has(item.name);
+    const chk = ddSelected.has(item.key);
     return `<div class="ddi ${chk?'sel':''}" onclick="event.stopPropagation();toggleDdItem(${idx})">
       <input type="checkbox" ${chk?'checked':''}>
-      <span class="ddi-name">${escH(truncate(item.name,36))}</span>
+      <span class="ddi-name">${escH(truncate(item.name,32))}</span>
       <span class="ddi-edi">${escH(item.ediCode)}</span>
     </div>`;
   }).join('');
@@ -814,20 +815,16 @@ function renderDropdown() {
 }
 function toggleDdItem(idx) {
   const item = ddItems[idx]; if(!item) return;
-  if (ddSelected.has(item.name)) ddSelected.delete(item.name);
-  else                            ddSelected.add(item.name);
+  if (ddSelected.has(item.key)) ddSelected.delete(item.key);
+  else                           ddSelected.add(item.key);
   renderDropdown();
 }
 function ddSelectAll(v) {
-  if (v === undefined) {
-    // 기존 토글 방식 (하위 호환)
-    const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.name));
-    ddItems.forEach(item => allSel ? ddSelected.delete(item.name) : ddSelected.add(item.name));
-  } else if (v) {
-    ddItems.forEach(item => ddSelected.add(item.name));
-  } else {
-    ddItems.forEach(item => ddSelected.delete(item.name));
-  }
+  const allSel = ddItems.length>0 && ddItems.every(i=>ddSelected.has(i.key));
+  ddItems.forEach(item => {
+    const sel = (v===undefined) ? !allSel : v;
+    if (sel) ddSelected.add(item.key); else ddSelected.delete(item.key);
+  });
   renderDropdown();
 }
 function updateDdCnt() {
@@ -837,9 +834,9 @@ function openDropdown()  { const d=document.getElementById('dropdown'); if(d) d.
 function closeDropdown() { const d=document.getElementById('dropdown'); if(d) d.classList.remove('open'); }
 function confirmSelection() {
   if (ddSelected.size===0) {
-    ddItems.forEach(item=>selectedNames.add(item.name));
+    ddItems.forEach(item=>selectedNames.add(item.key));
   } else {
-    ddSelected.forEach(n=>selectedNames.add(n));
+    ddSelected.forEach(k=>selectedNames.add(k));
   }
   ddSelected.clear();
   closeDropdown();
@@ -853,21 +850,25 @@ function confirmSelection() {
 ══════════════════════════════════════════════ */
 function renderChips(filterKw) {
   const wrap = document.getElementById('selectedChips'); if(!wrap) return;
-  const arr  = [...selectedNames];
+  const arr  = [...selectedNames]; // composite keys
   if (!arr.length) {
     wrap.innerHTML='';
     const fw=document.getElementById('chipFilterWrap'); if(fw) fw.style.display='none';
     return;
   }
   const kw = (filterKw !== undefined ? filterKw : document.getElementById('chipFilter')?.value||'').trim().toLowerCase();
-  const visible = kw ? arr.filter(n=>n.toLowerCase().includes(kw)) : arr;
+  const getName = k => k.split('|||')[0];
+  const visible = kw ? arr.filter(k=>getName(k).toLowerCase().includes(kw)) : arr;
   const hidden  = arr.length - visible.length;
   wrap.innerHTML =
-    visible.map(name=>`
-      <div class="chip">
-        <span title="${escH(name)}">${escH(truncate(name,22))}</span>
-        <span class="chip-del" onclick="removeChip('${escJs(name)}')">×</span>
-      </div>`).join('') +
+    visible.map(key=>{
+      const name = getName(key);
+      const edi  = key.split('|||')[1]||'';
+      return `<div class="chip">
+        <span title="${escH(name)} (${escH(edi)})">${escH(truncate(name,20))}</span>
+        <span class="chip-del" onclick="removeChip('${escJs(key)}')">×</span>
+      </div>`;
+    }).join('') +
     (hidden>0?`<div class="chip" style="background:#F1F5F9;border-color:#CBD5E1;color:var(--muted);">+${hidden}개 숨김</div>`:'') +
     `<div class="chip chip-clear" onclick="clearChips()"><span>전체 지우기</span><span class="chip-del">×</span></div>`;
   const fw=document.getElementById('chipFilterWrap'); if(fw) fw.style.display=arr.length>=3?'block':'none';
@@ -876,11 +877,12 @@ function renderChips(filterKw) {
 function filterChips() {
   const kw = document.getElementById('chipFilter')?.value||'';
   renderChips(kw);
-  const filtered = kw.trim() ? [...selectedNames].filter(n=>n.toLowerCase().includes(kw.toLowerCase())) : [...selectedNames];
+  const getName = k => k.split('|||')[0];
+  const filtered = kw.trim() ? [...selectedNames].filter(k=>getName(k).toLowerCase().includes(kw.toLowerCase())) : [...selectedNames];
   if (filtered.length>0) renderTableWithNames(filtered);
 }
-function removeChip(name) { selectedNames.delete(name); renderChips(); selectedNames.size>0?renderTable():resetResult(); }
-function clearChips()      { selectedNames.clear(); renderChips(); resetResult(); }
+function removeChip(key) { selectedNames.delete(key); renderChips(); selectedNames.size>0?renderTable():resetResult(); }
+function clearChips()     { selectedNames.clear(); renderChips(); resetResult(); }
 
 /* ══════════════════════════════════════════════
    결과 영역 헬퍼
@@ -895,28 +897,35 @@ function getResultArea() {
    테이블 렌더
 ══════════════════════════════════════════════ */
 function renderTable() { renderTableWithNames([...selectedNames]); }
-function renderTableWithNames(names) {
-  if (!names.length) { resetResult(); return; }
+function renderTableWithNames(keys) {
+  if (!keys.length) { resetResult(); return; }
   expandedItem = null;
   Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
 
-  const display   = names.slice(0,MAX_ROWS);
-  const isLimited = names.length>MAX_ROWS;
-  // 병원당 첫 번째 가격만 사용 (테이블/차트와 동일 기준)
+  const getName = k => k.split('|||')[0];
+  const getEdi  = k => k.split('|||')[1]||'';
+
+  const display   = keys.slice(0, MAX_ROWS);
+  const isLimited = keys.length > MAX_ROWS;
+
+  // 병원당 첫 번째 가격만으로 통계 (name+EDI+hosp 기준)
   const priceMap = new Map();
-  loadedData.forEach(d => {
-    if (!names.includes(d.itemName) || d.price <= 0) return;
-    const key = `${d.itemName}|${d.hospName}`;
-    if (!priceMap.has(key)) priceMap.set(key, d.price);
+  keys.forEach(key => {
+    const name = getName(key), edi = getEdi(key);
+    loadedData.forEach(d => {
+      if (d.itemName !== name || d.ediCode !== edi || d.price <= 0) return;
+      const pk = `${key}|${d.hospName}`;
+      if (!priceMap.has(pk)) priceMap.set(pk, d.price);
+    });
   });
   const allPrices = [...priceMap.values()];
-  const minP=allPrices.length?Math.min(...allPrices):0;
-  const maxP=allPrices.length?Math.max(...allPrices):0;
-  const avgP=allPrices.length?Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length):0;
+  const minP = allPrices.length ? Math.min(...allPrices) : 0;
+  const maxP = allPrices.length ? Math.max(...allPrices) : 0;
+  const avgP = allPrices.length ? Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length) : 0;
 
   let html=`
   <div class="res-header">
-    <div class="st"><span class="st-l">선택 항목</span><span class="st-v">${names.length}개</span></div>
+    <div class="st"><span class="st-l">선택 항목</span><span class="st-v">${keys.length}개</span></div>
     <div class="st-sep"></div>
     <div class="st"><span class="st-l">최저가</span><span class="st-v" style="color:#1a7a4a">${minP.toLocaleString()}원</span></div>
     <div class="st-sep"></div>
@@ -946,14 +955,15 @@ function renderTableWithNames(names) {
     </tr></thead>
     <tbody id="tBody">`;
 
-    display.forEach(name => {
-      const items   = loadedData.filter(d=>d.itemName===name);
-      const ediCode = items[0]?.ediCode||'-';
+    display.forEach(key => {
+      const name    = getName(key);
+      const ediCode = getEdi(key);
+      const items   = loadedData.filter(d => d.itemName===name && d.ediCode===ediCode);
       const priceArr= selectedHosps.map(h=>{ const f=items.find(d=>d.hospName===h); return f?{price:f.price,date:f.date}:null; });
       const cmap    = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.price).sort((a,b)=>a-b));
 
-      html+=`<tr data-name="${escH(name)}" onclick="toggleInlineChart(this)">
-        <td title="${escH(name)}">
+      html+=`<tr data-key="${escH(key)}" onclick="toggleInlineChart(this)">
+        <td title="${escH(name)} (${escH(ediCode)})">
           <span class="item-name">${escH(name)}</span>
           <span class="edi-tag">EDI: ${escH(ediCode)}</span>
         </td>`;
@@ -1047,16 +1057,20 @@ function switchTab(tab) {
    인라인 차트 (행 클릭)
 ══════════════════════════════════════════════ */
 function toggleInlineChart(tr) {
-  const name = tr.dataset.name;
+  const key  = tr.dataset.key;
+  const name = key ? key.split('|||')[0] : tr.dataset.name;
+  const edi  = key ? key.split('|||')[1]||'' : '';
   document.getElementById('_cr')?.remove();
   if (activeCharts['_inline']) { activeCharts['_inline'].destroy(); delete activeCharts['_inline']; }
   document.querySelectorAll('#tBody tr.row-exp').forEach(r=>r.classList.remove('row-exp'));
 
-  if (expandedItem===name) { expandedItem=null; return; }
-  expandedItem = name;
+  if (expandedItem===key) { expandedItem=null; return; }
+  expandedItem = key;
   tr.classList.add('row-exp');
 
-  const items = loadedData.filter(d=>d.itemName===name);
+  const items = edi
+    ? loadedData.filter(d=>d.itemName===name && d.ediCode===edi)
+    : loadedData.filter(d=>d.itemName===name);
   const chartData = selectedHosps
     .map(h=>({hosp:h,rec:items.find(d=>d.hospName===h)})).filter(d=>d.rec)
     .map(d=>({hosp:d.hosp,price:d.rec.price,date:d.rec.date,unit:d.rec.unit}))
@@ -1123,12 +1137,15 @@ function toggleInlineChart(tr) {
    엑셀
 ══════════════════════════════════════════════ */
 function exportExcel() {
-  const names=[...selectedNames]; if(!names.length) return;
+  const keys=[...selectedNames]; if(!keys.length) return;
+  const getName = k => k.split('|||')[0];
+  const getEdi  = k => k.split('|||')[1]||'-';
   const headers=['항목명','EDI코드','분류',...selectedHosps.flatMap(h=>[`${h}_단가(원)`,`${h}_등록일`])];
   const rows=[headers];
-  names.forEach(name=>{
-    const items=loadedData.filter(d=>d.itemName===name);
-    const row=[name,items[0]?.ediCode||'-',items[0]?.category||'-'];
+  keys.forEach(key=>{
+    const name=getName(key), edi=getEdi(key);
+    const items=loadedData.filter(d=>d.itemName===name&&d.ediCode===edi);
+    const row=[name,edi,items[0]?.category||'-'];
     selectedHosps.forEach(h=>{const f=items.find(d=>d.hospName===h);row.push(f?f.price:'');row.push(f?f.date:'');});
     rows.push(row);
   });
