@@ -256,7 +256,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 
 /* ── 차트 드로어 (하단 고정) ── */
 .chart-drawer{
-  position:fixed;bottom:0;left:0;right:0;
+  position:fixed;bottom:0;right:0;
   height:360px;background:#fff;
   border-top:3px solid var(--cyan);
   box-shadow:0 -4px 24px rgba(0,0,0,0.15);
@@ -1224,6 +1224,10 @@ function openDrawerChart(chartData, name, edi) {
   const title  = document.getElementById('drawerTitle');
   const btnWrap= document.getElementById('drawerAvgBtn');
 
+  // 사이드바 레이아웃이면 사이드바 너비만큼 왼쪽 띄우기
+  const sbVisible = document.getElementById('layoutSidebar').style.display !== 'none';
+  drawer.style.left = sbVisible ? '280px' : '0';
+
   title.textContent = name + (edi ? ` (${edi})` : '');
 
   const hasMulti = chartData.some(d=>d.count>1);
@@ -1335,28 +1339,35 @@ function exportExcel() {
   // 병원 세로 배치: 행=병원, 열=항목
   const headers = ['병원명', ...keys.flatMap(k=>{
     const name = getName(k), edi = getEdi(k);
-    const label = name.length>22 ? name.slice(0,21)+'…' : name;
-    return [label+'('+edi+') 단가', '등록일'];
+    const label = name.length>18 ? name.slice(0,17)+'…' : name;
+    return [`${label}(${edi})`, '등록일', '전체금액(건별)'];
   })];
   const rows = [headers];
+
   selectedHosps.forEach(hosp=>{
     const row = [hosp];
     keys.forEach(k=>{
       const name = getName(k), edi = getEdi(k);
       const items = loadedData.filter(d=>d.itemName===name&&d.ediCode===edi);
       const hi = items.filter(d=>d.hospName===hosp&&d.price>0);
-      if(!hi.length){ row.push('','-'); return; }
-      const prices = hi.map(d=>d.price);
-      const minP=Math.min(...prices), maxP=Math.max(...prices);
-      row.push(prices.length>1?minP+'~'+maxP:minP);
+      if(!hi.length){ row.push('', '-', ''); return; }
+      const prices = hi.map(d=>d.price).sort((a,b)=>a-b);
+      const minP=prices[0], maxP=prices[prices.length-1];
+      // 단가: 단일이면 숫자, 범위이면 min~max
+      row.push(prices.length>1 ? `${minP}~${maxP}` : minP);
       row.push(hi[0].date||'-');
+      // 전체 건별 금액: 모든 가격 나열
+      row.push(prices.length>1 ? prices.join(' / ') : '');
     });
     rows.push(row);
   });
+
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:20}, ...keys.flatMap(()=>[{wch:22},{wch:12}])];
+  ws['!cols'] = [{wch:20}, ...keys.flatMap(()=>[{wch:24},{wch:12},{wch:40}])];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '비급여비교');
+
+  // 수집정보 시트
   const mrows=[['병원명','수집일','항목수']];
   selectedHosps.forEach(h=>{const info=metadata[h];if(info)mrows.push([h,info.updated,info.count]);});
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mrows),'수집정보');
