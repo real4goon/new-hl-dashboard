@@ -36,6 +36,8 @@ jobs:
         run: pip install requests
 
       - name: 데이터 수집
+        env:
+          HIRA_API_KEY: ${{ secrets.HIRA_API_KEY }}
         run: |
           INPUT="${{ github.event.inputs.hospital }}"
           if [ -z "$INPUT" ]; then
