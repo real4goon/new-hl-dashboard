@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.8</title>
+<title>비급여 비교 대시보드 V5.9</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -254,8 +254,32 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .footer a{color:var(--cyan);text-decoration:none;}
 .footer strong{color:var(--navy);}
 
-/* ── 버블 차트 캔버스 ── */
-#bubbleChartCanvas { display:block; width:100% !important; }
+
+/* ── 전체 목록 탭 ── */
+.fl-ctrl {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:12px 18px; background:var(--light);
+  border-bottom:1px solid var(--border); font-size:13px;
+}
+.fl-label { font-size:11.5px; font-weight:700; color:var(--muted); white-space:nowrap; }
+.fl-sel   { padding:6px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:12.5px; font-family:inherit; background:#fff; cursor:pointer; }
+.fl-sel:focus { outline:none; border-color:var(--cyan); }
+.fl-input { flex:1; min-width:180px; padding:6px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:12.5px; font-family:inherit; background:#fff; }
+.fl-input:focus { outline:none; border-color:var(--cyan); }
+.fl-sort-group { display:flex; align-items:center; gap:4px; }
+.fl-sort-btn { width:28px; height:30px; border:1.5px solid var(--border); border-radius:6px; background:#fff; cursor:pointer; font-size:12px; }
+.fl-sort-btn:hover { background:var(--light); }
+.fl-count { font-size:12px; color:var(--muted); margin-left:4px; white-space:nowrap; }
+.fl-table-wrap { overflow:auto; max-height:calc(100vh - 300px); }
+.fl-table { border-collapse:collapse; width:100%; font-size:12.5px; }
+.fl-table thead th {
+  position:sticky; top:0; z-index:5;
+  background:#F4F7FB; border-bottom:2px solid var(--border);
+  border-right:1px solid var(--border);
+  padding:9px 12px; font-size:11.5px; font-weight:700; color:var(--navy); text-align:left; white-space:nowrap;
+}
+.fl-table tbody td { padding:8px 12px; border-bottom:1px solid #EEF2F7; border-right:1px solid #EEF2F7; vertical-align:middle; }
+.fl-table tbody tr:hover td { background:#F7FAFD; }
 
 /* ── 차트 드로어 (하단 고정) ── */
 .chart-drawer{
@@ -425,7 +449,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.8</p>
+      <p>서울·경기 상급종합병원 V5.9</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -798,7 +822,8 @@ async function loadSelectedData() {
   getResultArea().innerHTML = `
     <div class="empty">
       <div class="empty-icon">✅</div>
-      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!${failedHosps.length ? `<br><span style="color:#E67E22;font-size:12px">⚠ ${failedHosps.map(f=>f.name).join(', ')} 로드 실패 (비교에서 제외됨)</span>` : ''}<br>위 검색창에서 항목명을 입력 후 선택해주세요.</div>
+      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!${failedHosps.length ? `<br><span style="color:#E67E22;font-size:12px">⚠ ${failedHosps.map(f=>f.name).join(', ')} 로드 실패 (비교에서 제외됨)</span>` : ''}<br>
+      검색창에서 항목 선택 후 비교하거나, <b>🗂 전체 목록</b> 탭에서 전체 항목을 볼 수 있습니다.</div>
     </div>`;
 }
 
@@ -963,8 +988,20 @@ function getResultArea() {
 /* ══════════════════════════════════════════════
    테이블 렌더
 ══════════════════════════════════════════════ */
-function renderTable() { renderTableWithNames([...selectedNames]); }
+function renderTable() {
+  if (currentTab==='list') { renderTableWithNames([]); return; }
+  renderTableWithNames([...selectedNames]);
+}
 function renderTableWithNames(keys) {
+  // 전체 목록 탭: 항목 선택 없어도 동작
+  if (currentTab==='list') {
+    expandedItem=null;
+    Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
+    const html = buildFullListHTML();
+    getResultArea().innerHTML = html;
+    initFullList();
+    return;
+  }
   if (!keys.length) { resetResult(); return; }
   expandedItem = null;
   Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
@@ -1014,24 +1051,14 @@ function renderTableWithNames(keys) {
   <div class="tab-row">
     <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
     <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
-    <button class="tab-btn ${currentTab==='bubble'?'active':''}" onclick="switchTab('bubble')">🫧 포지셔닝 맵</button>
+    <button class="tab-btn ${currentTab==='list'?'active':''}" onclick="switchTab('list')">🗂 전체 목록</button>
   </div>
   ${chartModeBar}`;
 
-  if (currentTab==='bubble') {
-    html += `<div style="padding:18px 22px;">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
-        <b>버블 위치</b>: 왼쪽=저렴 / 오른쪽=비쌈 (해당 항목 내 전체 병원 기준) &nbsp;|&nbsp;
-        <b>Y축</b>: 선택 항목별로 행 구분 &nbsp;|&nbsp;
-        <b>★ 분홍 큰 버블</b> = 우리 병원 (가격 숫자 표시), <b>파란 작은 버블</b> = 타병원<br>
-        버블에 마우스 올리면 병원명·가격 표시
-      </div>
-      <div style="position:relative;height:460px;">
-        <canvas id="bubbleChartCanvas"></canvas>
-      </div>
-    </div>`;
+  if (currentTab==='list') {
+    html += buildFullListHTML();
     getResultArea().innerHTML = html;
-    requestAnimationFrame(() => drawBubbleChart(keys));
+    initFullList();
     return;
   }
 
@@ -1229,126 +1256,210 @@ function renderTableWithNames(keys) {
   }
 }
 
-function drawBubbleChart(keys) {
-  const canvas = document.getElementById('bubbleChartCanvas');
-  if (!canvas) return;
-  if (activeCharts['bubble']) { activeCharts['bubble'].destroy(); delete activeCharts['bubble']; }
 
-  // 항목 라벨 (Y축: 짧게 자른 항목명)
-  const itemLabels = keys.map((key,i) => {
-    const name = key.split('|||')[0];
-    return name.length > 18 ? name.slice(0,17)+'…' : name;
+/* ══════════════════════════════════════════════
+   전체 목록 탭
+══════════════════════════════════════════════ */
+let listHosp   = '';
+let listCat    = '';
+let listSearch = '';
+let listSort   = 'name';
+let listAsc    = true;
+let listRows   = [];
+
+function autoCategory(name) {
+  if (/초음파/.test(name)) return '초음파';
+  if (/MRI|자기공명/.test(name)) return 'MRI';
+  if (/내시경|생검|천자/.test(name)) return '내시경';
+  if (/치과|임플란트|크라운|인레이|온레이|레진|치석/.test(name)) return '치과';
+  if (/이학요법|도수치료|언어치료|FIMS|신장분사|전산화 인지|증식치료|체외자기/.test(name)) return '이학요법';
+  if (/제증명|진단서|확인서|사본|증명서|검안서|사망|출생|사산/.test(name)) return '제증명';
+  if (/예방접종/.test(name)) return '예방접종';
+  if (/처치|수술|로봇|경피|레이저/.test(name)) return '처치·수술';
+  if (/치료재료/.test(name)) return '치료재료';
+  if (/검체|병리/.test(name)) return '검사료';
+  if (/교육|상담/.test(name)) return '교육·상담';
+  if (/상급병실/.test(name)) return '상급병실';
+  if (/정신|행동치료/.test(name)) return '정신요법';
+  if (/주사/.test(name)) return '주사료';
+  if (/기능 검사/.test(name)) return '기능검사';
+  return '기타';
+}
+
+function buildFullListHTML() {
+  const hospOpts = selectedHosps
+    .map(h => `<option value="${escH(h)}" ${h===MY_HOSP?'selected':''}>${h===MY_HOSP?'★ ':''} ${escH(h)}</option>`)
+    .join('');
+
+  // 분류 목록 (데이터에서 자동 추출)
+  const cats = [...new Set(loadedData.map(d => autoCategory(d.itemName)))].sort();
+  const catOpts = cats.map(c => `<option value="${escH(c)}">${escH(c)}</option>`).join('');
+
+  return `
+  <div class="fl-ctrl">
+    <span class="fl-label">병원</span>
+    <select class="fl-sel" id="flHosp" onchange="flFilter()">
+      ${hospOpts}
+    </select>
+    <span class="fl-label">분류</span>
+    <select class="fl-sel" id="flCat" onchange="flFilter()">
+      <option value="">전체</option>
+      ${catOpts}
+    </select>
+    <input class="fl-input" id="flSearch" placeholder="항목명 또는 EDI코드 검색..." oninput="flFilter()">
+    <div class="fl-sort-group">
+      <span class="fl-label">정렬</span>
+      <select class="fl-sel" id="flSort" onchange="flSort()">
+        <option value="name">항목명</option>
+        <option value="cat">분류</option>
+        <option value="price">단가</option>
+        <option value="date">등록일</option>
+      </select>
+      <button class="fl-sort-btn" id="flSortDir" onclick="flToggleDir()">▲</button>
+    </div>
+    <span class="fl-count" id="flCount"></span>
+  </div>
+  <div class="fl-table-wrap">
+    <table class="fl-table">
+      <thead><tr>
+        <th style="width:40px"><input type="checkbox" id="flAllCb" onchange="flToggleAll(this)" style="accent-color:var(--pink);width:15px;height:15px;cursor:pointer"></th>
+        <th>항목명</th>
+        <th style="width:80px">분류</th>
+        <th style="width:120px">EDI코드</th>
+        <th style="width:170px">단가</th>
+        <th style="width:100px">등록일</th>
+        <th style="width:80px">비교</th>
+      </tr></thead>
+      <tbody id="flBody"></tbody>
+    </table>
+  </div>`;
+}
+
+function initFullList() {
+  listHosp   = document.getElementById('flHosp')?.value || (selectedHosps[0]||'');
+  listCat    = '';
+  listSearch = '';
+  listSort   = 'name';
+  listAsc    = true;
+  flFilter();
+}
+
+function flFilter() {
+  listHosp   = document.getElementById('flHosp')?.value   || listHosp;
+  listCat    = document.getElementById('flCat')?.value    || '';
+  listSearch = (document.getElementById('flSearch')?.value || '').trim().toLowerCase();
+
+  // 해당 병원 항목만
+  const hospData = loadedData.filter(d => d.hospName === listHosp && d.price > 0);
+
+  // (itemName + ediCode) 기준 병원 내 중복 합산
+  const map = new Map();
+  hospData.forEach(d => {
+    const k = d.itemName + '|||' + d.ediCode;
+    if (!map.has(k)) map.set(k, { name: d.itemName, edi: d.ediCode, cat: autoCategory(d.itemName),
+      prices: [], date: d.date });
+    map.get(k).prices.push(d.price);
+    if (d.date > map.get(k).date) map.get(k).date = d.date;
   });
 
-  // 데이터셋: 병원별로 분리 (우리 병원 마지막에 덮어 그리기 위해)
-  const otherDatasets = [];
-  const myDataset     = [];
-  const allPricesPerKey = {}; // 가격 범위 계산용
+  listRows = [...map.values()].map(r => ({
+    ...r,
+    minP: Math.min(...r.prices),
+    maxP: Math.max(...r.prices),
+    avg:  Math.round(r.prices.reduce((a,b)=>a+b,0)/r.prices.length),
+    count: r.prices.length,
+    key: r.name + '|||' + r.edi + '|||',
+  }));
 
-  keys.forEach((key, ki) => {
-    const parts = key.split('|||');
-    const name = parts[0], ediCode = parts[1]||'';
-    const prices = selectedHosps.flatMap(h =>
-      loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode&&d.hospName===h&&d.price>0).map(d=>d.price)
-    );
-    allPricesPerKey[ki] = { min: Math.min(...prices)||0, max: Math.max(...prices)||0 };
-  });
+  // 분류 필터
+  if (listCat) listRows = listRows.filter(r => r.cat === listCat);
+  // 검색 필터
+  if (listSearch) listRows = listRows.filter(r =>
+    r.name.toLowerCase().includes(listSearch) || r.edi.toLowerCase().includes(listSearch)
+  );
 
-  selectedHosps.forEach(hosp => {
-    const isMy = hosp === MY_HOSP;
-    const pts = keys.map((key, ki) => {
-      const parts = key.split('|||');
-      const name = parts[0], ediCode = parts[1]||'';
-      const hospPrices = loadedData
-        .filter(d=>d.itemName===name&&d.ediCode===ediCode&&d.hospName===hosp&&d.price>0)
-        .map(d=>d.price);
-      if (!hospPrices.length) return null;
-      const avg = hospPrices.reduce((a,b)=>a+b,0)/hospPrices.length;
-      const { min, max } = allPricesPerKey[ki];
-      const range = max - min;
-      // X: 0(최저)~100(최고) 가격 백분위
-      const xPct = range > 0 ? ((avg - min) / range * 100) : 50;
-      return { x: xPct, y: ki + 1, r: isMy ? 16 : 9,
-               hosp, price: Math.round(avg), count: hospPrices.length, itemLabel: itemLabels[ki] };
-    }).filter(Boolean);
+  flSortRows();
+  flRender();
+}
 
-    if (!pts.length) return;
-
-    const dataset = {
-      label: hosp,
-      data: pts,
-      backgroundColor: isMy ? 'rgba(232,68,90,0.85)' : 'rgba(46,134,193,0.45)',
-      borderColor:     isMy ? '#C0303F'               : 'rgba(46,134,193,0.7)',
-      borderWidth: isMy ? 2.5 : 1.5,
-    };
-    isMy ? myDataset.push(dataset) : otherDatasets.push(dataset);
-  });
-
-  const allDatasets = [...otherDatasets, ...myDataset];
-  if (!allDatasets.length) return;
-
-  // 모든 데이터 포인트 (툴팁용)
-  activeCharts['bubble'] = new Chart(canvas.getContext('2d'), {
-    type: 'bubble',
-    plugins: [ChartDataLabels],
-    data: { datasets: allDatasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      layout: { padding: { right: 20 } },
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          formatter: (val, ctx) => {
-            // 우리 병원만 라벨
-            if (ctx.dataset.label !== MY_HOSP) return '';
-            return val.price >= 10000
-              ? (val.price/10000).toFixed(0)+'만'
-              : val.price.toLocaleString();
-          },
-          font: { size: 10, weight: '700' },
-          color: '#fff',
-          anchor: 'center',
-          align: 'center',
-        },
-        tooltip: {
-          callbacks: {
-            title: () => '',
-            label: ctx => {
-              const d = ctx.raw;
-              const isOurs = ctx.dataset.label === MY_HOSP;
-              return [
-                ` ${isOurs ? '★ ' : ''}${d.hosp}`,
-                ` ${d.itemLabel}`,
-                ` ${Math.round(d.price).toLocaleString()}원${d.count>1?' ('+d.count+'건 평균)':''}`,
-              ];
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          min: -3, max: 103,
-          title: { display:true, text:'← 저렴                가격 위치 (최저~최고 기준)                비쌈 →', font:{size:11}, color:'#64748B' },
-          ticks: { callback: v => v===0?'최저가':v===50?'중간':v===100?'최고가':'', font:{size:10} },
-          grid: { color: ctx => ctx.tick.value===50?'#CBD5E1':'#EEF2F7', lineWidth: ctx=>ctx.tick.value===50?2:1 }
-        },
-        y: {
-          min: 0, max: keys.length + 0.5,
-          ticks: {
-            callback: v => {
-              const idx = Math.round(v) - 1;
-              return idx >= 0 && idx < itemLabels.length ? itemLabels[idx] : '';
-            },
-            stepSize: 1,
-            font: { size: 10 },
-          },
-          grid: { color:'#EEF2F7' }
-        }
-      }
-    }
+function flSort() {
+  listSort = document.getElementById('flSort')?.value || 'name';
+  flSortRows(); flRender();
+}
+function flToggleDir() {
+  listAsc = !listAsc;
+  const btn = document.getElementById('flSortDir');
+  if (btn) btn.textContent = listAsc ? '▲' : '▼';
+  flSortRows(); flRender();
+}
+function flSortRows() {
+  const key = listSort;
+  listRows.sort((a,b) => {
+    const va = key==='price' ? a.avg : (a[key]||'');
+    const vb = key==='price' ? b.avg : (b[key]||'');
+    if (typeof va === 'number') return listAsc ? va-vb : vb-va;
+    return listAsc ? String(va).localeCompare(String(vb),'ko') : String(vb).localeCompare(String(va),'ko');
   });
 }
+
+function flRender() {
+  const cnt = document.getElementById('flCount');
+  if (cnt) cnt.textContent = `${listRows.length.toLocaleString()}건`;
+
+  const tbody = document.getElementById('flBody');
+  if (!tbody) return;
+
+  if (!listRows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">검색 결과가 없습니다.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = listRows.map(r => {
+    const inSel  = selectedNames.has(r.key);
+    const isRange = r.count > 1;
+    const rowBg  = inSel ? 'background:#FFF0F3;' : '';
+    return `<tr style="${rowBg}cursor:pointer" onclick="flToggleItem('${escJs(r.key)}',this)">
+      <td style="text-align:center">
+        <input type="checkbox" ${inSel?'checked':''} style="accent-color:var(--pink);width:15px;height:15px;cursor:pointer"
+               onclick="event.stopPropagation();flToggleItem('${escJs(r.key)}',this.closest('tr'))">
+      </td>
+      <td>
+        <div style="font-weight:700;line-height:1.35;font-size:12.5px;">${escH(r.name)}</div>
+      </td>
+      <td><span style="background:#EEF2F7;color:var(--muted);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:600">${escH(r.cat)}</span></td>
+      <td style="font-size:11px;font-family:monospace;color:var(--blue)">${escH(r.edi)}</td>
+      <td>
+        <div style="font-weight:700;font-size:13px">${isRange
+          ? r.minP.toLocaleString()+'~'+r.maxP.toLocaleString()+'원'
+          : r.minP.toLocaleString()+'원'}</div>
+        ${isRange ? `<div style="font-size:10.5px;color:var(--muted)">평균 ${r.avg.toLocaleString()}원 · ${r.count}건</div>` : ''}
+      </td>
+      <td style="font-size:11.5px;color:var(--muted)">${r.date||'-'}</td>
+      <td style="text-align:center" onclick="event.stopPropagation();flToggleItem('${escJs(r.key)}',this.closest('tr'))">
+        <button style="padding:4px 10px;border-radius:6px;font-size:11.5px;font-weight:700;border:1.5px solid;cursor:pointer;font-family:inherit;
+                       background:${inSel?'var(--pink)':'#fff'};border-color:${inSel?'var(--pink)':'var(--blue)'};
+                       color:${inSel?'#fff':'var(--blue)'}">
+          ${inSel ? '✓ 추가됨' : '+ 비교'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function flToggleItem(key, tr) {
+  if (selectedNames.has(key)) selectedNames.delete(key);
+  else selectedNames.add(key);
+  renderChips();
+  flRender(); // 체크 상태 갱신
+}
+
+function flToggleAll(cb) {
+  if (cb.checked) listRows.forEach(r => selectedNames.add(r.key));
+  else            listRows.forEach(r => selectedNames.delete(r.key));
+  renderChips();
+  flRender();
+}
+
 
 function setChartGridMode(mode) {
   chartGridMode = mode;
