@@ -15,22 +15,24 @@ import os
 import sys
 import time
 import argparse
-import urllib3
 from xml.etree import ElementTree as ET
 from datetime import datetime
-
-# Windows 터미널 UTF-8 출력 강제
-if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
-# 사설 인증서 환경에서 SSL 경고 억제
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ═══════════════════════════════════════════════════════
 #  설정 (필요 시 수정)
 # ═══════════════════════════════════════════════════════
+_api_key = os.environ.get("HIRA_API_KEY", "")
+if not _api_key:
+    # 로컬 개발 편의: .env 파일 또는 직접 입력
+    _api_key = os.environ.get("HIRA_API_KEY_LOCAL", "")
+if not _api_key:
+    print("❌ HIRA_API_KEY 환경변수가 설정되지 않았습니다.")
+    print("   GitHub Actions: Settings → Secrets → HIRA_API_KEY")
+    print("   로컬 실행: export HIRA_API_KEY=<키값>")
+    sys.exit(1)
+
 CONFIG = {
-    "api_key"   : "0412d9d9b5df0a9504c7e3712efa9c123d1639149c78fac71fd43121f7227b23",
+    "api_key"   : _api_key,
     "base_url"  : "https://apis.data.go.kr/B551182/nonPaymentDamtInfoService/getNonPaymentItemHospDtlList",
     "output_dir": "data",
     "chunk"     : 500,    # 회당 최대 요청 건수 (서버 부하 방지)
@@ -50,7 +52,7 @@ HOSPITALS = {
     "삼성서울병원"   : "삼성서울병원",
     "서울아산병원"   : "재단법인아산사회복지재단 서울아산병원",
     "세브란스병원"   : "연세대학교의과대학세브란스병원",
-    "강남세브란스"   : "강남세브란스병원",
+    "강남세브란스"   : "연세대학교의과대학강남세브란스병원",
     "서울성모병원"   : "학교법인가톨릭학원가톨릭대학교서울성모병원",
     "고대안암병원"   : "학교법인 고려중앙학원 고려대학교의과대학부속병원(안암병원)",
     "고대구로병원"   : "고려대학교의과대학부속구로병원",
@@ -94,7 +96,7 @@ def fetch_hospital(display_name: str, search_name: str) -> list:
         resp = None
         for attempt in range(cfg["max_retry"]):
             try:
-                resp = requests.get(cfg["base_url"], params=params, timeout=cfg["timeout"], verify=False)
+                resp = requests.get(cfg["base_url"], params=params, timeout=cfg["timeout"])
                 resp.raise_for_status()
                 break
             except Exception as e:
@@ -139,6 +141,7 @@ def fetch_hospital(display_name: str, search_name: str) -> list:
                 "date"     : date_str,
                 "unit"     : g("npayUnit") or "-",
                 "category" : g("npayClsfNm") or "-",
+                "note"     : g("npayNote") or "-",   # 특이사항 (구분 단서)
             })
 
         print(f"    page {page:3d}: {len(items):4d}건 수집 (누적 {len(result):,}건)")
@@ -238,6 +241,7 @@ def main():
     print(f"{'='*55}\n")
 
     success = 0
+    failed  = []
     for display_name, search_name in targets.items():
         cache_path = os.path.join(CONFIG["output_dir"],
                                   f"{display_name.replace('/', '_')}.json")
@@ -262,6 +266,7 @@ def main():
                 print(f"  ⚠  데이터 없음 → 저장 스킵 (API 검색명 확인 필요)")
         except Exception as e:
             print(f"  ❌ 실패: {e}")
+            failed.append(display_name)
             if already:
                 print(f"  → 기존 캐시 유지")
                 success += 1
@@ -272,6 +277,12 @@ def main():
     print(f"  all_data.json 생성 완료: 총 {total:,}건")
     print(f"  성공: {success}/{len(targets)}개 병원")
     print(f"{'='*55}\n")
+
+    if failed:
+        print(f"⚠ 실패 병원 ({len(failed)}개): {', '.join(failed)}")
+        if len(failed) == len(targets):
+            print("❌ 모든 병원 수집 실패 — GitHub Actions를 실패로 처리합니다.")
+            sys.exit(1)
 
     print("📊 병원별 현황:")
     for name, info in sorted(metadata.items()):

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.4</title>
+<title>비급여 비교 대시보드 V5.5</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -422,7 +422,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.4</p>
+      <p>서울·경기 상급종합병원 V5.5</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -540,6 +540,7 @@ let ddSelected    = new Set();
 let expandedItem  = null;
 let activeCharts  = {};          // key: canvasId → Chart
 let selectedHosps = [];
+let failedHosps   = [];   // 로드 실패 병원 목록
 let currentLayout = 'sidebar';   // 'sidebar' | 'top'
 let currentTab    = 'table';     // 'table' | 'chart'
 let chartGridMode = 'avg';        // 'min' | 'avg' | 'max'
@@ -591,6 +592,7 @@ async function loadMetadata() {
       if (el) el.textContent = badge;
     });
     renderHospLists();
+    checkFreshness();
   } catch {
     const err = `<div style="padding:10px 6px;color:#F87171;font-size:12px;line-height:1.9;">⚠ data/metadata.json 없음<br>1. python collect_data.py<br>2. python -m http.server 8000</div>`;
     document.getElementById('hospListSb').innerHTML = err;
@@ -728,33 +730,51 @@ async function loadSelectedData() {
     ['sbStatus','topStatus'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=t; });
   };
 
-  loadedData = []; selectedNames.clear(); renderChips(); resetResult();
-  setStatus('로딩 중...');
+  loadedData = []; selectedHosps = []; failedHosps = [];
+  selectedNames.clear(); renderChips(); resetResult();
+  setStatus(`⏳ ${checked.length}개 병원 병렬 로딩 중...`);
 
-  for (let i=0; i<checked.length; i++) {
-    const name = checked[i];
-    setStatus(`[${i+1}/${checked.length}] ${name}...`);
-    try {
-      const info = metadata[name]; if (!info) continue;
-      const r = await fetch(DATA_DIR + info.filename);
-      if (!r.ok) throw new Error();
-      loadedData.push(...await r.json());
-    } catch { console.warn(`${name} 로드 실패`); }
-  }
+  // 병렬 로딩 (Promise.allSettled — 일부 실패해도 나머지 계속)
+  const jobs = checked.map(async name => {
+    const info = metadata[name];
+    if (!info) throw new Error('metadata 없음');
+    const r = await fetch(DATA_DIR + info.filename);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const rows = await r.json();
+    return { name, rows };
+  });
 
+  const settled = await Promise.allSettled(jobs);
+  settled.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      selectedHosps.push(result.value.name);
+      loadedData.push(...result.value.rows);
+    } else {
+      failedHosps.push({ name: checked[i], reason: result.reason?.message || '알 수 없는 오류' });
+      console.warn(`${checked[i]} 로드 실패:`, result.reason);
+    }
+  });
+
+  // 우리 병원 항상 첫 번째
   selectedHosps = [
-    ...checked.filter(n => n===MY_HOSP),
-    ...checked.filter(n => n!==MY_HOSP)
+    ...selectedHosps.filter(n => n===MY_HOSP),
+    ...selectedHosps.filter(n => n!==MY_HOSP)
   ];
+
+  ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
 
   if (!loadedData.length) {
     setStatus('❌ 데이터 없음. collect_data.py 먼저 실행하세요.');
-    ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
     return;
   }
 
-  // (항목명 + EDI코드 + 단위) 조합으로 중복 제거
-  // → 같은 항목명+EDI라도 단위가 다른 가격 항목은 별도 표시
+  // 실패 병원 알림
+  if (failedHosps.length) {
+    const failNames = failedHosps.map(f=>f.name).join(', ');
+    setStatus(`✅ ${selectedHosps.length}/${checked.length}개 성공 · ⚠ 실패: ${failNames}`);
+  }
+
+  // 항목 인덱싱
   const seen = new Map();
   loadedData.forEach(d => {
     const key = d.itemName + '|||' + d.ediCode + '|||' + (d.unit || '');
@@ -763,21 +783,19 @@ async function loadSelectedData() {
   allItems = [...seen.values()].sort((a,b) => a.name.localeCompare(b.name,'ko'));
   fuse = new Fuse(allItems, {keys:['name','ediCode'],threshold:.35,minMatchCharLength:1});
 
-  const msg = `✅ ${loadedData.length.toLocaleString()}건 / ${allItems.length.toLocaleString()}개 항목`;
-  setStatus(msg);
+  const successMsg = `✅ ${loadedData.length.toLocaleString()}건 / ${allItems.length.toLocaleString()}개 항목${failedHosps.length ? ` · ⚠ 실패 ${failedHosps.length}개` : ''}`;
+  if (!failedHosps.length) setStatus(successMsg);
   ['topMeta','topMeta2'].forEach(id => {
     const el=document.getElementById(id);
-    if(el) el.textContent=`${selectedHosps.length}개 병원 로드 완료 · ${allItems.length.toLocaleString()}개 항목`;
+    if(el) el.textContent=`${selectedHosps.length}개 병원 · ${allItems.length.toLocaleString()}개 항목${failedHosps.length ? ` · 실패 ${failedHosps.length}개` : ''}`;
   });
-
-  ['loadBtnSb','loadBtnTop'].forEach(id => { const el=document.getElementById(id); if(el) el.disabled=false; });
 
   buildSearchCards();
   closeDrawer();
   getResultArea().innerHTML = `
     <div class="empty">
       <div class="empty-icon">✅</div>
-      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!<br>위 검색창에서 항목명을 입력 후 선택해주세요.</div>
+      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!${failedHosps.length ? `<br><span style="color:#E67E22;font-size:12px">⚠ ${failedHosps.map(f=>f.name).join(', ')} 로드 실패 (비교에서 제외됨)</span>` : ''}<br>위 검색창에서 항목명을 입력 후 선택해주세요.</div>
     </div>`;
 }
 
@@ -1033,6 +1051,7 @@ function renderTableWithNames(keys) {
       });
 
       const cmap = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.min).sort((a,b)=>a-b));
+      const rank = itemRankStats(key);   // 순위/중앙값
 
       html+=`<tr data-key="${escH(key)}" onclick="toggleInlineChart(this)">
         <td title="${escH(name)} (${escH(ediCode)})">
@@ -1047,6 +1066,21 @@ function renderTableWithNames(keys) {
           const bg=cmap.get(d.min)||'#fff';
           const isRange = d.count > 1;
           const avg = Math.round(d.all.reduce((a,b)=>a+b,0)/d.all.length);
+
+          // 우리병원 셀: 순위/중앙값/차이 인사이트 추가
+          let insight = '';
+          if (isMy && rank && rank.myRank !== null) {
+            const diff   = Math.round(avg - rank.med);
+            const diffPct= rank.med ? (diff/rank.med*100).toFixed(1) : null;
+            const cls    = diff > 0 ? 'color:#B42318' : diff < 0 ? 'color:#1a7a4a' : 'color:var(--muted)';
+            const sign   = diff >= 0 ? '+' : '';
+            insight = `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed rgba(232,68,90,.3);font-size:10px;line-height:1.55;color:#7E3B45;">
+              <b>${rank.myRank}/${rank.total}위</b> · 중앙값 ${rank.med ? Math.round(rank.med).toLocaleString()+'원' : '—'}<br>
+              <span style="${cls}">${sign}${Math.abs(diff).toLocaleString()}원${diffPct!==null?` (${sign}${diffPct}%)`:''}</span>
+              · 저렴 ${rank.below}곳 비쌈 ${rank.above}곳
+            </div>`;
+          }
+
           html+=`<td class="pc ${isMy?'my-c':''}" style="background:${bg}">
             <div class="cell-price">${isRange
               ? `${d.min.toLocaleString()}~${d.max.toLocaleString()}원`
@@ -1054,6 +1088,7 @@ function renderTableWithNames(keys) {
             <div class="cell-date">${isRange
               ? `평균 ${avg.toLocaleString()}원 <span style="color:var(--blue);font-weight:bold">(${d.count}건)</span>`
               : d.date||'-'}</div>
+            ${insight}
           </td>`;
         }
       });
@@ -1405,6 +1440,73 @@ function exportExcel() {
 /* ══════════════════════════════════════════════
    유틸
 ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   순위 · 중앙값 · 최신성 헬퍼
+══════════════════════════════════════════════ */
+function medianOf(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a,b) => a-b);
+  const m = Math.floor(s.length/2);
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+}
+
+// 항목 key + 병원 → {min, max, avg, count} or null
+function hospPriceStats(key, hosp) {
+  const parts = key.split('|||');
+  const [name, ediCode, unit] = parts;
+  const prices = loadedData
+    .filter(d => d.itemName===name && d.ediCode===ediCode &&
+                 (d.unit||'') === (unit||'') && d.hospName===hosp && d.price>0)
+    .map(d => d.price);
+  if (!prices.length) return null;
+  const avg = prices.reduce((a,b)=>a+b,0)/prices.length;
+  return { min:Math.min(...prices), max:Math.max(...prices), avg, count:prices.length };
+}
+
+// 전체 병원 통계 (중앙값, 우리 병원 순위)
+function itemRankStats(key) {
+  const hospStats = selectedHosps
+    .map(h => ({ hosp:h, s:hospPriceStats(key,h) }))
+    .filter(x => x.s !== null);
+  if (!hospStats.length) return null;
+
+  const avgs = hospStats.map(x => x.s.avg);
+  const med  = medianOf(avgs);
+  const sorted = [...hospStats].sort((a,b) => a.s.avg - b.s.avg);
+  const myIdx  = sorted.findIndex(x => x.hosp === MY_HOSP);
+  const myRank = myIdx >= 0 ? myIdx+1 : null;
+  const myAvg  = myIdx >= 0 ? sorted[myIdx].s.avg : null;
+  const below  = myIdx >= 0 ? hospStats.filter(x=>x.hosp!==MY_HOSP && x.s.avg<myAvg).length : null;
+  const above  = myIdx >= 0 ? hospStats.filter(x=>x.hosp!==MY_HOSP && x.s.avg>myAvg).length : null;
+
+  return { med, myRank, myAvg, total:hospStats.length, below, above };
+}
+
+// 최신성 경고 (metadata 로드 후 호출)
+const STALE_DAYS = 14;
+function checkFreshness() {
+  const entries = Object.entries(metadata).filter(([,m])=>m.updated);
+  if (!entries.length) return;
+  const ages = entries.map(([n,m]) => {
+    const d = new Date(m.updated.replace(' ','T'));
+    return { name:n, days: Math.floor((Date.now()-d)/86400000) };
+  });
+  const stale = ages.filter(x => x.days > STALE_DAYS);
+  if (!stale.length) return;
+  const msg = `⚠ ${stale.length}개 병원이 ${STALE_DAYS}일 이상 미수집: ${stale.map(x=>x.name).join(', ')}`;
+  ['dataBadge','dataBadge2'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.style.cssText += ';color:#D97706;background:#FFF8E1;border-color:#F7D994;';
+    el.title = msg;
+  });
+  // 상태바에도 표시
+  ['sbStatus','topStatus'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    if (el.textContent.startsWith('⚠')) return;
+    el.innerHTML = (el.textContent||'') + `<br><span style="color:#D97706;font-size:10px">${msg}</span>`;
+  });
+}
+
 function resetResult() {
   Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
   expandedItem=null;
