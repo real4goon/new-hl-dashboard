@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.5</title>
+<title>비급여 비교 대시보드 V5.6</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -254,6 +254,9 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .footer a{color:var(--cyan);text-decoration:none;}
 .footer strong{color:var(--navy);}
 
+/* ── 버블 차트 캔버스 ── */
+#bubbleChartCanvas { display:block; width:100% !important; }
+
 /* ── 차트 드로어 (하단 고정) ── */
 .chart-drawer{
   position:fixed;bottom:0;right:0;
@@ -422,7 +425,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.5</p>
+      <p>서울·경기 상급종합병원 V5.6</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -542,7 +545,7 @@ let activeCharts  = {};          // key: canvasId → Chart
 let selectedHosps = [];
 let failedHosps   = [];   // 로드 실패 병원 목록
 let currentLayout = 'sidebar';   // 'sidebar' | 'top'
-let currentTab    = 'table';     // 'table' | 'chart'
+let currentTab    = 'table';     // 'table' | 'chart' | 'bubble'
 let chartGridMode = 'avg';        // 'min' | 'avg' | 'max'
 
 /* ══════════════════════════════════════════════
@@ -1011,8 +1014,28 @@ function renderTableWithNames(keys) {
   <div class="tab-row">
     <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
     <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
+    <button class="tab-btn ${currentTab==='bubble'?'active':''}" onclick="switchTab('bubble')">🫧 포지셔닝 맵</button>
   </div>
   ${chartModeBar}`;
+
+  if (currentTab==='bubble') {
+    html += `<div style="padding:18px 22px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
+        <b>버블 위치</b>: 왼쪽=우리 병원이 저렴 / 오른쪽=비쌈 &nbsp;|&nbsp;
+        <b>버블 높이</b>: 해당 항목을 보유한 비교 병원 수 &nbsp;|&nbsp;
+        <b>버블 크기</b>: 타병원 간 가격 격차율<br>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(45,198,83,.75);margin-right:4px;"></span>저렴
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(251,191,36,.75);margin:0 4px 0 12px;"></span>중간
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgba(232,68,90,.75);margin:0 4px 0 12px;"></span>비쌈
+        &nbsp;|&nbsp; 버블에 마우스 올리면 상세 정보
+      </div>
+      <div style="position:relative;height:460px;">
+        <canvas id="bubbleChartCanvas"></canvas>
+      </div>
+    </div>`;
+    getResultArea().innerHTML = html;
+    return;
+  }
 
   if (currentTab==='table') {
     html += `
@@ -1206,11 +1229,133 @@ function renderTableWithNames(keys) {
       });
     });
   }
+
+  // 버블 차트 렌더
+  if (currentTab==='bubble') {
+    requestAnimationFrame(() => drawBubbleChart(keys));
+  }
+}
+
+function drawBubbleChart(keys) {
+  const canvas = document.getElementById('bubbleChartCanvas');
+  if (!canvas) return;
+
+  // 항목별 데이터 계산
+  const bubbleData = keys.map(key => {
+    const parts  = key.split('|||');
+    const name   = parts[0], edi = parts[1]||'';
+    const rs     = itemRankStats(key);
+    if (!rs || rs.myRank === null) return null;
+
+    // 가격 격차율 (버블 크기)
+    const allPrices = selectedHosps.flatMap(h => {
+      const it = loadedData.filter(d=>d.itemName===name&&d.ediCode===edi&&d.hospName===h&&d.price>0);
+      return it.map(d=>d.price);
+    });
+    const pMin = Math.min(...allPrices), pMax = Math.max(...allPrices);
+    const gapRatio = pMin > 0 ? (pMax/pMin - 1) * 100 : 0;
+
+    // X: 우리 병원 가격 백분위 (0=최저, 100=최고)
+    const xPct = rs.total > 1 ? ((rs.myRank-1)/(rs.total-1))*100 : 50;
+
+    // Y: 해당 항목 보유 병원 수
+    const yCount = rs.total;
+
+    // 색상: 위치에 따라 초록→노랑→빨강
+    const r = xPct/100;
+    const color = r < 0.4
+      ? `rgba(45,198,83,0.75)`
+      : r < 0.65
+      ? `rgba(251,191,36,0.75)`
+      : `rgba(232,68,90,0.75)`;
+    const border = r < 0.4 ? '#2DC653' : r < 0.65 ? '#D97706' : '#E8445A';
+
+    return {
+      x: xPct,
+      y: yCount,
+      r: Math.min(28, Math.max(7, Math.sqrt(gapRatio) * 1.8 + 7)),
+      label: name.length > 20 ? name.slice(0,19)+'…' : name,
+      fullName: name,
+      edi,
+      color,
+      border,
+      myRank: rs.myRank,
+      total: rs.total,
+      myAvg: rs.myAvg,
+      med: rs.med,
+      gapRatio: gapRatio.toFixed(0),
+    };
+  }).filter(Boolean);
+
+  if (!bubbleData.length) return;
+
+  if (activeCharts['bubble']) { activeCharts['bubble'].destroy(); delete activeCharts['bubble']; }
+
+  activeCharts['bubble'] = new Chart(canvas.getContext('2d'), {
+    type: 'bubble',
+    plugins: [ChartDataLabels],
+    data: {
+      datasets: [{
+        data: bubbleData,
+        backgroundColor: bubbleData.map(d=>d.color),
+        borderColor:     bubbleData.map(d=>d.border),
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          formatter: (_,ctx) => bubbleData[ctx.dataIndex]?.label || '',
+          font: { size: 9.5, weight: '600' },
+          color: '#1E293B',
+          anchor: 'end',
+          align: 'top',
+          offset: 4,
+          display: ctx => bubbleData[ctx.dataIndex]?.r > 10,
+          clip: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = bubbleData[ctx.dataIndex];
+              if (!d) return '';
+              return [
+                ` ${d.fullName}`,
+                ` ${d.myRank}/${d.total}위 · 우리: ${d.myAvg ? Math.round(d.myAvg).toLocaleString()+'원' : '—'}`,
+                ` 중앙값: ${d.med ? Math.round(d.med).toLocaleString()+'원' : '—'}`,
+                ` 병원간 격차율: ${d.gapRatio}%`,
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          min: -5, max: 105,
+          title: { display:true, text:'← 우리 병원이 저렴         가격 위치 (%)        비쌈 →', font:{size:11}, color:'#64748B' },
+          ticks: {
+            callback: v => v===0?'최저가':v===50?'중간':v===100?'최고가':'',
+            font: { size: 10 }
+          },
+          grid: { color: ctx => ctx.tick.value===50?'#CBD5E1':'#EEF2F7', lineWidth: ctx=>ctx.tick.value===50?2:1 }
+        },
+        y: {
+          min: 0,
+          title: { display:true, text:'비교 병원 수', font:{size:11}, color:'#64748B' },
+          ticks: { stepSize:1, font:{size:10} },
+          grid: { color:'#EEF2F7' }
+        }
+      }
+    }
+  });
 }
 
 function setChartGridMode(mode) {
   chartGridMode = mode;
-  renderTable(); // 차트 그리드 전체 재렌더
+  renderTable();
 }
 
 function switchTab(tab) {
