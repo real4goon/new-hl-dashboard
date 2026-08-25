@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.2</title>
+<title>비급여 비교 대시보드 V6.3</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -449,7 +449,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.2</p>
+      <p>서울·경기 상급종합병원 V6.3</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1353,9 +1353,8 @@ function buildFullListHTML() {
       <thead><tr>
         <th style="width:40px"><input type="checkbox" id="flAllCb" onchange="flToggleAll(this)" style="accent-color:var(--pink);width:15px;height:15px;cursor:pointer"></th>
         <th>항목명</th>
-        <th style="width:80px">분류</th>
-        <th style="width:120px">EDI코드</th>
-        <th style="width:170px">단가</th>
+        <th style="width:90px">분류</th>
+        <th style="width:180px">단가</th>
         <th style="width:100px">등록일</th>
         <th style="width:80px">비교</th>
       </tr></thead>
@@ -1447,18 +1446,22 @@ function flRender() {
     const inSel  = selectedNames.has(r.key);
     const isRange = r.count > 1;
     const rowBg  = inSel ? 'background:#FFF0F3;' : '';
-    return `<tr style="${rowBg}cursor:pointer" onclick="flToggleItem('${escJs(r.key)}',this)">
+      const slashIdx = r.name.indexOf('/');
+      const namePrefix = slashIdx > -1 ? r.name.slice(0, slashIdx) : '';
+      const nameMain   = slashIdx > -1 ? r.name.slice(slashIdx+1)  : r.name;
+      return `<tr style="${rowBg}cursor:pointer" onclick="flToggleItem('${escJs(r.key)}',this)">
       <td style="text-align:center">
         <input type="checkbox" ${inSel?'checked':''} style="accent-color:var(--pink);width:15px;height:15px;cursor:pointer"
                onclick="event.stopPropagation();flToggleItem('${escJs(r.key)}',this.closest('tr'))">
       </td>
       <td>
-        <div style="font-weight:700;line-height:1.35;font-size:12.5px;">${escH(r.name)}</div>
+        ${namePrefix ? `<div style="font-size:10.5px;color:var(--muted);margin-bottom:2px;">${escH(namePrefix)}</div>` : ''}
+        <div style="font-weight:700;line-height:1.35;font-size:13px;color:var(--navy)">${escH(nameMain)}</div>
+        <div style="font-size:10px;color:#94A3B8;margin-top:2px;font-family:monospace">${escH(r.edi)}</div>
       </td>
       <td><span style="background:#EEF2F7;color:var(--muted);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:600">${escH(r.cat)}</span></td>
-      <td style="font-size:11px;font-family:monospace;color:var(--blue)">${escH(r.edi)}</td>
       <td>
-        <div style="font-weight:700;font-size:13px">${isRange
+        <div style="font-weight:700;font-size:13px;color:var(--navy)">${isRange
           ? r.minP.toLocaleString()+'~'+r.maxP.toLocaleString()+'원'
           : r.minP.toLocaleString()+'원'}</div>
         ${isRange ? `<div style="font-size:10.5px;color:var(--muted)">평균 ${r.avg.toLocaleString()}원 · ${r.count}건</div>` : ''}
@@ -1792,8 +1795,28 @@ function checkFreshness() {
 function resetResult() {
   Object.values(activeCharts).forEach(c=>c.destroy()); activeCharts={};
   expandedItem=null;
-  getResultArea().innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">검색창에서 항목을 선택해주세요.</div></div>`;
   const eb=document.getElementById('excelBtn'); if(eb) eb.disabled=true;
+
+  // 데이터가 로드된 상태면 탭 포함해서 표시
+  if (loadedData.length) {
+    const tabHtml = `
+    <div class="res-header">
+      <div class="st"><span class="st-l">로드 병원</span><span class="st-v">${selectedHosps.length}개</span></div>
+      <div class="st-sep"></div>
+      <div class="st"><span class="st-l">총 항목</span><span class="st-v">${allItems.length.toLocaleString()}개</span></div>
+    </div>
+    <div class="tab-row">
+      <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
+      <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
+      <button class="tab-btn ${currentTab==='list'?'active':''}"  onclick="switchTab('list')">🗂 전체 목록</button>
+    </div>
+    <div class="empty"><div class="empty-icon">🔍</div>
+      <div class="empty-text">검색창에서 항목을 선택하거나<br><b>🗂 전체 목록</b> 탭에서 전체 항목을 확인하세요.</div>
+    </div>`;
+    getResultArea().innerHTML = tabHtml;
+    return;
+  }
+  getResultArea().innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">검색창에서 항목을 선택해주세요.</div></div>`;
 }
 function buildColorMap(sorted){
   const map=new Map(),u=[...new Set(sorted)];
