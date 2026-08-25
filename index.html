@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.9</title>
+<title>비급여 비교 대시보드 V6.2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -449,7 +449,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.9</p>
+      <p>서울·경기 상급종합병원 V6.2</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -819,12 +819,41 @@ async function loadSelectedData() {
 
   buildSearchCards();
   closeDrawer();
-  getResultArea().innerHTML = `
-    <div class="empty">
-      <div class="empty-icon">✅</div>
-      <div class="empty-text"><b>${allItems.length.toLocaleString()}개</b> 항목 로드 완료!${failedHosps.length ? `<br><span style="color:#E67E22;font-size:12px">⚠ ${failedHosps.map(f=>f.name).join(', ')} 로드 실패 (비교에서 제외됨)</span>` : ''}<br>
-      검색창에서 항목 선택 후 비교하거나, <b>🗂 전체 목록</b> 탭에서 전체 항목을 볼 수 있습니다.</div>
-    </div>`;
+  // 로드 완료: 탭 보이는 선택 화면
+  currentTab = 'table';
+  const loadedHtml = `
+  <div class="res-header">
+    <div class="st"><span class="st-l">로드 병원</span><span class="st-v">${selectedHosps.length}개</span></div>
+    <div class="st-sep"></div>
+    <div class="st"><span class="st-l">총 항목</span><span class="st-v">${allItems.length.toLocaleString()}개</span></div>
+    ${failedHosps.length ? `<div class="st-sep"></div><div class="st"><span style="color:#E67E22;font-size:12px">⚠ 실패 ${failedHosps.length}개</span></div>` : ''}
+  </div>
+  <div class="tab-row">
+    <button class="tab-btn" onclick="switchTab('table')">📋 히트맵 테이블</button>
+    <button class="tab-btn" onclick="switchTab('chart')">📊 항목별 차트</button>
+    <button class="tab-btn active" onclick="switchTab('list')">🗂 전체 목록</button>
+  </div>
+  <div style="padding:40px 24px;text-align:center;color:var(--muted);">
+    <div style="font-size:32px;margin-bottom:14px;">✅</div>
+    <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;">
+      ${selectedHosps.length}개 병원 · ${allItems.length.toLocaleString()}개 항목 로드 완료
+    </div>
+    <div style="font-size:13px;color:var(--muted);line-height:2;margin-bottom:20px;">
+      <b>🗂 전체 목록</b> 탭에서 병원별 전체 비급여 항목을 보거나<br>
+      위 검색창에서 항목명·EDI코드를 검색해 <b>📋 히트맵 테이블</b>로 병원 간 비교하세요.
+    </div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="switchTab('list')"
+        style="padding:11px 26px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(46,134,193,.3)">
+        🗂 전체 목록 보기
+      </button>
+      <button onclick="document.getElementById('searchInput')?.focus();document.getElementById('searchInput')?.scrollIntoView({behavior:'smooth'})"
+        style="padding:11px 26px;background:#fff;color:var(--blue);border:2px solid var(--blue);border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+        🔍 검색해서 비교
+      </button>
+    </div>
+  </div>`;
+  getResultArea().innerHTML = loadedHtml;
 }
 
 /* ══════════════════════════════════════════════
