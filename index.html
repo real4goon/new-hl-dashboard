@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V5.6</title>
+<title>비급여 비교 대시보드 V5.7</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -425,7 +425,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V5.6</p>
+      <p>서울·경기 상급종합병원 V5.7</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1034,6 +1034,7 @@ function renderTableWithNames(keys) {
       </div>
     </div>`;
     getResultArea().innerHTML = html;
+    requestAnimationFrame(() => drawBubbleChart(keys));
     return;
   }
 
@@ -1228,11 +1229,6 @@ function renderTableWithNames(keys) {
         }
       });
     });
-  }
-
-  // 버블 차트 렌더
-  if (currentTab==='bubble') {
-    requestAnimationFrame(() => drawBubbleChart(keys));
   }
 }
 
