@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.4</title>
+<title>비급여 비교 대시보드 V6.5</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -258,28 +258,45 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 /* ── 전체 목록 탭 ── */
 .fl-ctrl {
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  padding:12px 18px; background:var(--light);
+  padding:9px 16px; background:var(--light);
   border-bottom:1px solid var(--border); font-size:13px;
 }
-.fl-label { font-size:11.5px; font-weight:700; color:var(--muted); white-space:nowrap; }
-.fl-sel   { padding:6px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:12.5px; font-family:inherit; background:#fff; cursor:pointer; }
+.fl-label { font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap; }
+.fl-sel   { padding:5px 8px; border:1.5px solid var(--border); border-radius:7px; font-size:12px; font-family:inherit; background:#fff; cursor:pointer; }
 .fl-sel:focus { outline:none; border-color:var(--cyan); }
-.fl-input { flex:1; min-width:180px; padding:6px 14px; border:1.5px solid var(--border); border-radius:8px; font-size:12.5px; font-family:inherit; background:#fff; }
+.fl-input { flex:1; min-width:160px; padding:5px 12px; border:1.5px solid var(--border); border-radius:7px; font-size:12px; font-family:inherit; background:#fff; }
 .fl-input:focus { outline:none; border-color:var(--cyan); }
 .fl-sort-group { display:flex; align-items:center; gap:4px; }
-.fl-sort-btn { width:28px; height:30px; border:1.5px solid var(--border); border-radius:6px; background:#fff; cursor:pointer; font-size:12px; }
+.fl-sort-btn { width:26px; height:28px; border:1.5px solid var(--border); border-radius:6px; background:#fff; cursor:pointer; font-size:11px; }
 .fl-sort-btn:hover { background:var(--light); }
-.fl-count { font-size:12px; color:var(--muted); margin-left:4px; white-space:nowrap; }
-.fl-table-wrap { overflow:auto; max-height:calc(100vh - 300px); }
-.fl-table { border-collapse:collapse; width:100%; font-size:12.5px; }
+.fl-count { font-size:11.5px; color:var(--muted); margin-left:4px; white-space:nowrap; }
+.fl-table-wrap { overflow:auto; max-height:calc(100vh - 270px); }
+.fl-table {
+  border-collapse:collapse; width:100%; font-size:12px;
+  table-layout:fixed;
+}
+.fl-table colgroup col.col-cb   { width:40px; }
+.fl-table colgroup col.col-name { width:auto; }
+.fl-table colgroup col.col-cat  { width:90px; }
+.fl-table colgroup col.col-price{ width:150px; }
+.fl-table colgroup col.col-date { width:88px; }
+.fl-table colgroup col.col-btn  { width:76px; }
 .fl-table thead th {
   position:sticky; top:0; z-index:5;
   background:#F4F7FB; border-bottom:2px solid var(--border);
   border-right:1px solid var(--border);
-  padding:9px 12px; font-size:11.5px; font-weight:700; color:var(--navy); text-align:left; white-space:nowrap;
+  padding:7px 10px; font-size:11px; font-weight:700; color:var(--navy);
+  text-align:left; white-space:nowrap; overflow:hidden;
 }
-.fl-table tbody td { padding:8px 12px; border-bottom:1px solid #EEF2F7; border-right:1px solid #EEF2F7; vertical-align:middle; }
+.fl-table tbody td {
+  padding:6px 10px; border-bottom:1px solid #EEF2F7;
+  border-right:1px solid #EEF2F7; vertical-align:middle;
+  text-align:left; overflow:hidden;
+}
 .fl-table tbody tr:hover td { background:#F7FAFD; }
+.fl-name-prefix { font-size:10px; color:var(--muted); margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fl-name-main   { font-weight:700; font-size:12.5px; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fl-name-edi    { font-size:9.5px; color:#94A3B8; margin-top:1px; font-family:monospace; }
 
 /* ── 차트 드로어 (하단 고정) ── */
 .chart-drawer{
@@ -449,7 +466,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.4</p>
+      <p>서울·경기 상급종합병원 V6.5</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1362,13 +1379,18 @@ function buildFullListHTML() {
   </div>
   <div class="fl-table-wrap">
     <table class="fl-table">
+      <colgroup>
+        <col class="col-cb"><col class="col-name">
+        <col class="col-cat"><col class="col-price">
+        <col class="col-date"><col class="col-btn">
+      </colgroup>
       <thead><tr>
-        <th style="width:40px"><input type="checkbox" id="flAllCb" onchange="flToggleAll(this)" style="accent-color:var(--pink);width:15px;height:15px;cursor:pointer"></th>
+        <th><input type="checkbox" id="flAllCb" onchange="flToggleAll(this)" style="accent-color:var(--pink);width:14px;height:14px;cursor:pointer"></th>
         <th>항목명</th>
-        <th style="width:90px">분류</th>
-        <th style="width:180px">단가</th>
-        <th style="width:100px">등록일</th>
-        <th style="width:80px">비교</th>
+        <th>분류</th>
+        <th>단가</th>
+        <th>등록일</th>
+        <th>비교</th>
       </tr></thead>
       <tbody id="flBody"></tbody>
     </table>
@@ -1476,9 +1498,9 @@ function flRender() {
                onclick="event.stopPropagation();flToggleItem('${escJs(r.key)}',this.closest('tr'))">
       </td>
       <td>
-        ${namePrefix ? `<div style="font-size:10.5px;color:var(--muted);margin-bottom:2px;">${escH(namePrefix)}</div>` : ''}
-        <div style="font-weight:700;line-height:1.35;font-size:13px;color:var(--navy)">${escH(nameMain)}</div>
-        <div style="font-size:10px;color:#94A3B8;margin-top:2px;font-family:monospace">${escH(r.edi)}</div>
+        ${namePrefix ? `<div class="fl-name-prefix">${escH(namePrefix)}</div>` : ''}
+        <div class="fl-name-main">${escH(nameMain)}</div>
+        <div class="fl-name-edi">${escH(r.edi)}</div>
       </td>
       <td><span style="background:#EEF2F7;color:var(--muted);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:600">${escH(r.cat)}</span></td>
       <td>
