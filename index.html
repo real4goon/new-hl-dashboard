@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.3</title>
+<title>비급여 비교 대시보드 V6.4</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -449,7 +449,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.3</p>
+      <p>서울·경기 상급종합병원 V6.4</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1347,6 +1347,18 @@ function buildFullListHTML() {
       <button class="fl-sort-btn" id="flSortDir" onclick="flToggleDir()">▲</button>
     </div>
     <span class="fl-count" id="flCount"></span>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+      <button id="flClearBtn"
+        onclick="selectedNames.clear();renderChips();flRender()"
+        style="display:none;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+        선택 해제
+      </button>
+      <button id="flCompareBtn" disabled
+        onclick="switchTab('table')"
+        style="padding:7px 16px;border:none;border-radius:8px;background:var(--pink);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;opacity:.4;transition:.15s;">
+        📋 항목 비교 보기 (<span id="flSelCnt">0</span>개)
+      </button>
+    </div>
   </div>
   <div class="fl-table-wrap">
     <table class="fl-table">
@@ -1433,6 +1445,15 @@ function flSortRows() {
 function flRender() {
   const cnt = document.getElementById('flCount');
   if (cnt) cnt.textContent = `${listRows.length.toLocaleString()}건`;
+
+  // 비교 버튼 상태 업데이트
+  const selN   = selectedNames.size;
+  const cmpBtn = document.getElementById('flCompareBtn');
+  const clrBtn = document.getElementById('flClearBtn');
+  const selCnt = document.getElementById('flSelCnt');
+  if (cmpBtn) { cmpBtn.disabled = selN===0; cmpBtn.style.opacity = selN ? '1' : '.4'; }
+  if (clrBtn) { clrBtn.style.display = selN ? '' : 'none'; }
+  if (selCnt) { selCnt.textContent = selN; }
 
   const tbody = document.getElementById('flBody');
   if (!tbody) return;
