@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.6</title>
+<title>비급여 비교 대시보드 V6.7</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -298,6 +298,39 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .fl-name-main   { font-weight:700; font-size:12.5px; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .fl-name-edi    { font-size:9.5px; color:#94A3B8; margin-top:1px; font-family:monospace; }
 
+/* ── 복수가격 전체보기 ── */
+.multi-price-wrap{margin-top:4px;}
+.multi-price-toggle{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:1px 0;border:0;background:transparent;
+  color:var(--blue);font-size:10.5px;font-weight:700;
+  cursor:pointer;font-family:inherit;text-decoration:none;
+}
+.multi-price-toggle:hover{text-decoration:underline;}
+.multi-price-details{
+  display:none;margin-top:6px;padding:7px 8px;
+  background:rgba(255,255,255,.78);border:1px solid rgba(46,134,193,.22);
+  border-radius:7px;text-align:left;min-width:150px;
+}
+.multi-price-details.open{display:block;}
+.multi-price-detail-row{
+  display:grid;grid-template-columns:22px minmax(76px,1fr) auto;
+  gap:5px;align-items:center;padding:4px 0;
+  border-bottom:1px dashed rgba(100,116,139,.18);
+  font-size:10.5px;font-weight:400;color:var(--muted);
+}
+.multi-price-detail-row:last-child{border-bottom:0;}
+.multi-price-no{color:#94A3B8;text-align:center;}
+.multi-price-amt{font-size:11px;font-weight:800;color:var(--navy);white-space:nowrap;}
+.multi-price-meta{text-align:right;font-size:9.5px;color:#94A3B8;white-space:nowrap;}
+.multi-price-head{
+  display:flex;justify-content:space-between;gap:8px;
+  padding-bottom:5px;margin-bottom:2px;border-bottom:1px solid rgba(46,134,193,.16);
+  font-size:9.5px;color:#64748B;font-weight:700;
+}
+.fl-table .multi-price-details{max-width:330px;background:#F8FBFF;}
+.fl-table .multi-price-detail-row{grid-template-columns:24px minmax(90px,1fr) auto;}
+
 /* ── 차트 드로어 (하단 고정) ── */
 .chart-drawer{
   position:fixed;bottom:0;right:0;
@@ -466,7 +499,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.6</p>
+      <p>서울·경기 상급종합병원 V6.7</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -785,6 +818,7 @@ async function loadSelectedData() {
     const r = await fetch(DATA_DIR + info.filename);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const rows = await r.json();
+    rows.forEach(d => { d.unit = normalizeUnit(d.unit); });
     return { name, rows };
   });
 
@@ -821,8 +855,9 @@ async function loadSelectedData() {
   // 항목 인덱싱
   const seen = new Map();
   loadedData.forEach(d => {
-    const key = d.itemName + '|||' + d.ediCode + '|||' + (d.unit || '');
-    if (!seen.has(key)) seen.set(key, { key, name: d.itemName, ediCode: d.ediCode, unit: d.unit || '' });
+    const unit = normalizeUnit(d.unit);
+    const key = d.itemName + '|||' + d.ediCode + '|||' + unit;
+    if (!seen.has(key)) seen.set(key, { key, name: d.itemName, ediCode: d.ediCode, unit });
   });
   allItems = [...seen.values()].sort((a,b) => a.name.localeCompare(b.name,'ko'));
   fuse = new Fuse(allItems, {keys:['name','ediCode'],threshold:.35,minMatchCharLength:1});
@@ -895,11 +930,12 @@ function onSearchInput(e) {
 
     loadedData.forEach(d => {
       const ediUp  = (d.ediCode || '').toUpperCase();
-      const k      = d.itemName + '|||' + d.ediCode + '|||' + (d.unit || '');
+      const unit   = normalizeUnit(d.unit);
+      const k      = d.itemName + '|||' + d.ediCode + '|||' + unit;
       if (ediUp === upper) {
-        if (!exactMap.has(k)) exactMap.set(k, { key: k, name: d.itemName, ediCode: d.ediCode, unit: d.unit||'' });
+        if (!exactMap.has(k)) exactMap.set(k, { key: k, name: d.itemName, ediCode: d.ediCode, unit });
       } else if (ediUp.includes(upper)) {
-        if (!partMap.has(k))  partMap.set(k,  { key: k, name: d.itemName, ediCode: d.ediCode, unit: d.unit||'' });
+        if (!partMap.has(k))  partMap.set(k,  { key: k, name: d.itemName, ediCode: d.ediCode, unit });
       }
     });
 
@@ -1061,9 +1097,10 @@ function renderTableWithNames(keys) {
   // 병원당 첫 번째 가격만으로 통계 (name+EDI+hosp 기준)
   const priceMap = new Map();
   keys.forEach(key => {
-    const name = getName(key), edi = getEdi(key);
+    const parts = key.split('|||');
+    const name = parts[0], edi = parts[1] || '', unit = normalizeUnit(parts[2]);
     loadedData.forEach(d => {
-      if (d.itemName !== name || d.ediCode !== edi || d.price <= 0) return;
+      if (d.itemName !== name || d.ediCode !== edi || normalizeUnit(d.unit) !== unit || d.price <= 0) return;
       const pk = `${key}|${d.hospName}`;
       if (!priceMap.has(pk)) priceMap.set(pk, d.price);
     });
@@ -1131,17 +1168,21 @@ function renderTableWithNames(keys) {
       const parts   = key.split('|||');
       const name    = parts[0];
       const ediCode = parts[1] || '';
-      const items   = loadedData.filter(d => d.itemName===name && d.ediCode===ediCode);
+      const unit    = normalizeUnit(parts[2]);
+      const items   = loadedData.filter(d => d.itemName===name && d.ediCode===ediCode && normalizeUnit(d.unit)===unit);
 
-      // 병원별 전체 가격 배열
+      // 병원별 전체 가격 배열 + 원본 행 보존 (복수가격 전체보기용)
       const priceArr = selectedHosps.map(h => {
-        const hospItems = items.filter(d => d.hospName===h && d.price>0);
+        const hospItems = items
+          .filter(d => d.hospName===h && d.price>0)
+          .sort((a,b) => a.price-b.price || String(a.date||'').localeCompare(String(b.date||'')));
         if (!hospItems.length) return null;
-        const prices = hospItems.map(d => d.price).sort((a,b) => a-b);
+        const prices = hospItems.map(d => d.price);
         const minP   = prices[0];
         const maxP   = prices[prices.length-1];
         if (prices.length > 1) hasMultiPrice = true;
-        return { min: minP, max: maxP, count: prices.length, date: hospItems[0].date, all: prices };
+        const latestDate = hospItems.map(x=>x.date||'').filter(Boolean).sort().reverse()[0] || '';
+        return { min: minP, max: maxP, count: prices.length, date: latestDate, all: prices, rows: hospItems };
       });
 
       const cmap = buildColorMap(priceArr.filter(p=>p!==null).map(p=>p.min).sort((a,b)=>a-b));
@@ -1180,8 +1221,15 @@ function renderTableWithNames(keys) {
               ? `${d.min.toLocaleString()}~${d.max.toLocaleString()}원`
               : `${d.min.toLocaleString()}원`}</div>
             <div class="cell-date">${isRange
-              ? `평균 ${avg.toLocaleString()}원 <span style="color:var(--blue);font-weight:bold">(${d.count}건)</span>`
+              ? `단순평균 ${avg.toLocaleString()}원 · ${d.count}건`
               : d.date||'-'}</div>
+            ${isRange ? `<div class="multi-price-wrap">
+              <button type="button" class="multi-price-toggle"
+                onclick="event.stopPropagation();toggleMultiPrice(this)">
+                ${d.count}건 전체보기 ▾
+              </button>
+              ${multiPriceDetailsHTML(d.rows)}
+            </div>` : ''}
             ${insight}
           </td>`;
         }
@@ -1192,11 +1240,8 @@ function renderTableWithNames(keys) {
     // 범위 항목 안내문구
     if (hasMultiPrice) {
       html += `<tr><td colspan="${selectedHosps.length+1}" style="padding:10px 14px;background:#FFF8E1;font-size:11.5px;color:#856404;border-top:2px solid #F0D060;">
-        ⚠ <b>범위(~)로 표시된 항목</b>은 심평원이 동일 코드에 여러 금액을 등록한 경우입니다.
-        상세 항목 확인은
-        <a href="https://www.hira.or.kr/npay/index.do?pgmid=HIRAA030009000000&WT.gnb=%EB%B9%84%EA%B8%89%EC%97%AC%EC%A7%84%EB%A3%8C%EB%B9%84%EC%A0%95%EB%B3%B4#app%2Frb%2FnpayDamtInfoList" target="_blank" style="color:var(--blue);font-weight:bold;">
-          심평원 비급여 진료비용 정보 →
-        </a>에서 해당 병원을 직접 조회하세요.
+        ℹ️ <b>범위(~)로 표시된 항목</b>은 동일 항목·비급여코드·단위에 여러 등록금액이 있는 경우입니다.
+        각 셀의 <b>“n건 전체보기”</b>를 누르면 현재 수집 데이터에 포함된 금액을 모두 확인할 수 있습니다.
       </td></tr>`;
     }
 
@@ -1207,8 +1252,8 @@ function renderTableWithNames(keys) {
     html+=`<div class="chart-grid" id="chartGrid">`;
     display.forEach((key,gi)=>{
       const parts   = key.split('|||');
-      const name    = parts[0], ediCode = parts[1]||'';
-      const items   = loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode);
+      const name    = parts[0], ediCode = parts[1]||'', unit = normalizeUnit(parts[2]);
+      const items   = loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode&&normalizeUnit(d.unit)===unit);
       const modeKey  = chartGridMode==='min'?'minP':chartGridMode==='avg'?'avg':'maxP';
       const chartData = selectedHosps.map(h=>{
         const hi = items.filter(d=>d.hospName===h&&d.price>0);
@@ -1237,8 +1282,8 @@ function renderTableWithNames(keys) {
     display.forEach((key,gi)=>{
       const canvas = document.getElementById(`gc-${gi}`); if(!canvas) return;
       const parts   = key.split('|||');
-      const name    = parts[0], ediCode = parts[1]||'';
-      const items   = loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode);
+      const name    = parts[0], ediCode = parts[1]||'', unit = normalizeUnit(parts[2]);
+      const items   = loadedData.filter(d=>d.itemName===name&&d.ediCode===ediCode&&normalizeUnit(d.unit)===unit);
       const chartData = selectedHosps.map(h=>{
         const hi = items.filter(d=>d.hospName===h&&d.price>0);
         if(!hi.length) return null;
@@ -1418,23 +1463,26 @@ function flFilter() {
   // 해당 병원 항목만
   const hospData = loadedData.filter(d => d.hospName === listHosp && d.price > 0);
 
-  // (itemName + ediCode) 기준 병원 내 중복 합산
+  // (itemName + ediCode + unit) 기준 병원 내 중복 합산
   const map = new Map();
   hospData.forEach(d => {
-    const k = d.itemName + '|||' + d.ediCode;
-    if (!map.has(k)) map.set(k, { name: d.itemName, edi: d.ediCode, cat: autoCategory(d.itemName),
-      prices: [], date: d.date });
+    const unit = normalizeUnit(d.unit);
+    const k = d.itemName + '|||' + d.ediCode + '|||' + unit;
+    if (!map.has(k)) map.set(k, { name: d.itemName, edi: d.ediCode, unit,
+      cat: autoCategory(d.itemName), prices: [], rows: [], date: d.date });
     map.get(k).prices.push(d.price);
-    if (d.date > map.get(k).date) map.get(k).date = d.date;
+    map.get(k).rows.push(d);
+    if ((d.date||'') > (map.get(k).date||'')) map.get(k).date = d.date;
   });
 
   listRows = [...map.values()].map(r => ({
     ...r,
+    rows: [...r.rows].sort((a,b)=>a.price-b.price || String(a.date||'').localeCompare(String(b.date||''))),
     minP: Math.min(...r.prices),
     maxP: Math.max(...r.prices),
     avg:  Math.round(r.prices.reduce((a,b)=>a+b,0)/r.prices.length),
     count: r.prices.length,
-    key: r.name + '|||' + r.edi + '|||',
+    key: r.name + '|||' + r.edi + '|||' + r.unit,
   }));
 
   // 분류 필터
@@ -1504,14 +1552,22 @@ function flRender() {
       <td>
         ${namePrefix ? `<div class="fl-name-prefix">${escH(namePrefix)}</div>` : ''}
         <div class="fl-name-main">${escH(nameMain)}</div>
-        <div class="fl-name-edi">${escH(r.edi)}</div>
+        <div class="fl-name-edi">${escH(r.edi)}${r.unit ? ` · ${escH(r.unit)}` : ''}</div>
       </td>
       <td><span style="background:#EEF2F7;color:var(--muted);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:600">${escH(r.cat)}</span></td>
       <td>
         <div style="font-weight:700;font-size:13px;color:var(--navy)">${isRange
           ? r.minP.toLocaleString()+'~'+r.maxP.toLocaleString()+'원'
           : r.minP.toLocaleString()+'원'}</div>
-        ${isRange ? `<div style="font-size:10.5px;color:var(--muted)">평균 ${r.avg.toLocaleString()}원 · ${r.count}건</div>` : ''}
+        ${isRange ? `
+          <div style="font-size:10.5px;color:var(--muted)">단순평균 ${r.avg.toLocaleString()}원 · ${r.count}건</div>
+          <div class="multi-price-wrap">
+            <button type="button" class="multi-price-toggle"
+              onclick="event.stopPropagation();toggleMultiPrice(this)">
+              ${r.count}건 전체보기 ▾
+            </button>
+            ${multiPriceDetailsHTML(r.rows)}
+          </div>` : ''}
       </td>
       <td style="font-size:11.5px;color:var(--muted)">${r.date||'-'}</td>
       <td style="text-align:center" onclick="event.stopPropagation();flToggleItem('${escJs(r.key)}',this.closest('tr'))">
@@ -1558,6 +1614,7 @@ function toggleInlineChart(tr) {
   const parts = key ? key.split('|||') : [];
   const name  = parts[0] || '';
   const edi   = parts[1] || '';
+  const unit  = normalizeUnit(parts[2]);
 
   document.querySelectorAll('#tBody tr.row-exp').forEach(r=>r.classList.remove('row-exp'));
 
@@ -1569,7 +1626,7 @@ function toggleInlineChart(tr) {
   expandedItem = key;
   tr.classList.add('row-exp');
 
-  const items = loadedData.filter(d => d.itemName===name && (!edi||d.ediCode===edi));
+  const items = loadedData.filter(d => d.itemName===name && (!edi||d.ediCode===edi) && normalizeUnit(d.unit)===unit);
   const chartData = selectedHosps.map(h=>{
     const hi = items.filter(d=>d.hospName===h&&d.price>0).sort((a,b)=>a.price-b.price);
     if(!hi.length) return null;
@@ -1702,19 +1759,22 @@ function exportExcel() {
   const keys=[...selectedNames]; if(!keys.length) return;
   const getName = k => k.split('|||')[0];
   const getEdi  = k => k.split('|||')[1]||'-';
+  const getUnit = k => normalizeUnit(k.split('|||')[2]);
 
   // 항목별 최대 가격 건수 계산 (동적 열 수 결정)
   const maxCounts = keys.map(k => {
-    const name=getName(k), edi=getEdi(k);
+    const name=getName(k), edi=getEdi(k), unit=getUnit(k);
     return Math.max(1, ...selectedHosps.map(h =>
-      loadedData.filter(d=>d.itemName===name&&d.ediCode===edi&&d.hospName===h&&d.price>0).length
+      loadedData.filter(d=>d.itemName===name&&d.ediCode===edi&&normalizeUnit(d.unit)===unit&&d.hospName===h&&d.price>0).length
     ));
   });
 
   // 헤더: 단일가 → [항목명, EDI, 등록일] / 다가 → [항목명, EDI, 등록일, 가격1, 가격2, ...]
   const headers = ['병원명', ...keys.flatMap((k, ki) => {
-    const name=getName(k), edi=getEdi(k);
-    const label = name.length>18 ? name.slice(0,17)+'…' : name;
+    const name=getName(k), edi=getEdi(k), unit=getUnit(k);
+    const unitLabel = unit ? ` [${unit}]` : '';
+    const labelBase = name + unitLabel;
+    const label = labelBase.length>18 ? labelBase.slice(0,17)+'…' : labelBase;
     const n = maxCounts[ki];
     if (n <= 1) return [label, edi, '등록일'];
     return [label, edi, '등록일', ...Array.from({length:n}, (_,j)=>`가격${j+1}`)];
@@ -1725,8 +1785,8 @@ function exportExcel() {
   selectedHosps.forEach(hosp => {
     const row = [hosp];
     keys.forEach((k, ki) => {
-      const name=getName(k), edi=getEdi(k);
-      const items = loadedData.filter(d=>d.itemName===name&&d.ediCode===edi);
+      const name=getName(k), edi=getEdi(k), unit=getUnit(k);
+      const items = loadedData.filter(d=>d.itemName===name&&d.ediCode===edi&&normalizeUnit(d.unit)===unit);
       const hi = items.filter(d=>d.hospName===hosp&&d.price>0);
       const maxN = maxCounts[ki];
 
@@ -1873,6 +1933,47 @@ function buildColorMap(sorted){
 const escH  = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escJs = s=>(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 const truncate=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
+
+function normalizeUnit(v) {
+  if (v == null) return '';
+  const s = String(v).trim();
+  return (!s || s === '-') ? '' : s;
+}
+
+function multiPriceDetailsHTML(rows) {
+  const arr = [...(rows || [])]
+    .filter(r => Number(r.price) > 0)
+    .sort((a,b) => Number(a.price)-Number(b.price) || String(a.date||'').localeCompare(String(b.date||'')));
+
+  if (arr.length <= 1) return '';
+
+  return `<div class="multi-price-details" onclick="event.stopPropagation()">
+    <div class="multi-price-head">
+      <span>등록금액 전체 ${arr.length}건</span>
+      <span>금액 · 단위 · 등록일</span>
+    </div>
+    ${arr.map((r,i) => {
+      const unit = normalizeUnit(r.unit);
+      const meta = [unit, r.date || ''].filter(Boolean).join(' · ') || '-';
+      return `<div class="multi-price-detail-row">
+        <span class="multi-price-no">${i+1}</span>
+        <span class="multi-price-amt">${Number(r.price).toLocaleString()}원</span>
+        <span class="multi-price-meta">${escH(meta)}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function toggleMultiPrice(btn) {
+  const wrap = btn.closest('.multi-price-wrap');
+  const box  = wrap?.querySelector('.multi-price-details');
+  if (!box) return;
+  const willOpen = !box.classList.contains('open');
+  box.classList.toggle('open', willOpen);
+  const m = btn.textContent.match(/(\d+)건/);
+  const countText = m ? m[1] + '건' : '전체';
+  btn.textContent = willOpen ? `${countText} 접기 ▴` : `${countText} 전체보기 ▾`;
+}
 
 /* ══════════════════════════════════════════════
    관리자 패널
