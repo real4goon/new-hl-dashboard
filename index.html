@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V7.0</title>
+<title>비급여 비교 대시보드 V7.2</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -46,6 +46,29 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .sb-row{display:flex;gap:6px;padding:0 6px;margin-bottom:9px;}
 .sb-row button{flex:1;padding:5px;border:1px solid rgba(255,255,255,0.13);background:transparent;color:rgba(255,255,255,0.38);border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s;}
 .sb-row button:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.65);}
+/* ── 권역별 병원 목록 ── */
+.rg{margin-top:5px;}
+.rg-head{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:7px;cursor:pointer;user-select:none;background:rgba(255,255,255,0.045);color:rgba(255,255,255,0.66);font-size:11.5px;font-weight:700;}
+.rg-head:hover{background:rgba(255,255,255,0.09);}
+.rg-arrow{display:inline-block;width:10px;font-size:9px;transition:transform .15s;}
+.rg.open .rg-arrow{transform:rotate(90deg);}
+.rg-name{flex:1;}
+.rg-cnt{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.07);}
+.rg-head.has-sel .rg-cnt,.rgt-head.has-sel .rg-cnt{color:#8fd8f5;background:rgba(65,182,230,0.17);}
+.rg-all{border:1px solid rgba(255,255,255,0.2);background:transparent;color:rgba(255,255,255,0.55);border-radius:5px;font-size:10.5px;padding:1px 7px;cursor:pointer;font-family:inherit;}
+.rg-all:hover{background:rgba(255,255,255,0.12);color:#fff;}
+.rg-body{display:none;flex-direction:column;gap:2px;padding:3px 0 2px 6px;}
+.rg.open .rg-body{display:flex;}
+.rg-my{margin-bottom:2px;}
+.rg-note{font-size:10.5px;line-height:1.7;color:rgba(255,255,255,0.34);padding:9px 8px 4px;}
+.rg-fold{width:calc(100% - 12px);margin:0 6px 9px;padding:4px;border:1px dashed rgba(255,255,255,0.16);background:transparent;color:rgba(255,255,255,0.38);border-radius:5px;font-size:10.5px;cursor:pointer;font-family:inherit;}
+.rg-fold:hover{color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.3);}
+.hosp-chips-wrap.grouped{flex-direction:column;flex-wrap:nowrap;gap:8px;}
+.rgt{display:flex;align-items:flex-start;gap:12px;}
+.rgt-head{display:flex;align-items:center;gap:6px;width:170px;flex-shrink:0;padding-top:5px;color:rgba(255,255,255,0.66);font-size:11.5px;font-weight:700;}
+.rgt-head .rg-name{flex:1;}
+.rgt-chips{display:flex;flex-wrap:wrap;gap:6px;flex:1;}
+.admin-rg{font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--muted);padding:8px 4px 2px;}
 .hosp-list-sb{display:flex;flex-direction:column;gap:2px;}
 .hi{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .15s;user-select:none;}
 .hi:hover{background:rgba(255,255,255,0.06);}
@@ -552,13 +575,17 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V7.0</p>
+      <p>전국 상급종합병원 V7.2</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
       <div class="sb-row">
         <button onclick="selectAll('sb',true)">전체 선택</button>
         <button onclick="selectAll('sb',false)">전체 해제</button>
+      </div>
+      <div class="sb-row">
+        <button onclick="selectPreset('metro')" title="서울·경기·인천 + 본원">수도권만</button>
+        <button onclick="selectPreset('nonmetro')" title="수도권 외 지역 + 본원">비수도권만</button>
       </div>
       <button class="load-btn-sb" id="loadBtnSb" onclick="loadSelectedData()">🚀 선택 병원 데이터 로드</button>
       <div class="sidebar-status sb-status" id="sbStatus"></div>
@@ -608,6 +635,8 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
       <div class="strip-actions">
         <button class="strip-btn" onclick="selectAll('top',true)">전체 선택</button>
         <button class="strip-btn" onclick="selectAll('top',false)">전체 해제</button>
+        <button class="strip-btn" onclick="selectPreset('metro')" title="서울·경기·인천 + 본원">수도권만</button>
+        <button class="strip-btn" onclick="selectPreset('nonmetro')" title="수도권 외 지역 + 본원">비수도권만</button>
         <button class="load-btn-top" id="loadBtnTop" onclick="loadSelectedData()">🚀 데이터 로드</button>
       </div>
     </div>
@@ -715,6 +744,10 @@ async function loadMetadata() {
     const r = await fetch(DATA_DIR + 'metadata.json');
     if (!r.ok) throw new Error();
     metadata = await r.json();
+    await loadHospInfo();          // 권역 정보(hospitals.json) — 없으면 기존 목록 방식으로 동작
+    if (Object.keys(hospInfo).length) {   // 병원 목록(hospitals.json)에 없는 병원은 화면에서 제외 (예전 수집 데이터가 남아 있어도 무시)
+      Object.keys(metadata).forEach(n => { if (!(n in hospInfo)) delete metadata[n]; });
+    }
     const dates = Object.values(metadata).map(m => m.updated).filter(Boolean).sort().reverse();
     const badge = dates.length ? `최근 수집: ${dates[0]}` : '수집 데이터 있음';
     ['dataBadge','dataBadge2'].forEach(id => {
@@ -737,7 +770,7 @@ function sortedHospNames() {
 
 const DEFAULT_ON = new Set([MY_HOSP,"서울대병원","삼성서울병원","서울아산병원","세브란스병원"]);
 
-function renderHospLists() {
+function renderHospListsFlat() {
   const sorted = sortedHospNames();
 
   // 사이드바 목록
@@ -773,6 +806,176 @@ function renderHospLists() {
   }).join('');
 }
 
+/* ══════════════════════════════════════════════
+   권역별 병원 목록 (hospitals.json 이 있을 때만 사용, 없으면 기존 목록 그대로)
+══════════════════════════════════════════════ */
+let hospInfo     = {};     // 병원명 → {region, zone, tier}
+let hospInfoList = [];     // hospitals.json 원본 순서
+const REGION_ORDER = ['서울','경기·인천','강원·충청','호남','대구·경북','부산·울산·경남','제주'];
+const METRO_REGIONS = new Set(['서울','경기·인천']);
+const REF_GROUP = '참고 · 5기 지정 외';
+let rgOpen = (() => { try { return JSON.parse(localStorage.getItem('rg_open') || '{}'); } catch (e) { return {}; } })();
+
+async function loadHospInfo() {
+  for (const url of ['hospitals.json', DATA_DIR + 'hospitals.json']) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const rows = Array.isArray(j) ? j : j.hospitals;
+      if (!Array.isArray(rows) || !rows.length) continue;
+      hospInfoList = rows.filter(h => h && h.name);
+      hospInfo = {};
+      hospInfoList.forEach(h => { hospInfo[h.name] = h; });
+      return true;
+    } catch (e) { /* 다음 경로 시도 */ }
+  }
+  hospInfo = {}; hospInfoList = [];
+  return false;
+}
+function hospGroup(name) {
+  const h = hospInfo[name];
+  if (!h) return '기타';
+  return h.tier === '참고' ? REF_GROUP : (h.region || '기타');
+}
+function isTier5(name) { const h = hospInfo[name]; return !!h && h.tier !== '참고'; }
+function isMetro(name) { const h = hospInfo[name]; return isTier5(name) && METRO_REGIONS.has(h.region); }
+
+// 그릴 그룹 목록: [{group, names}]  (본원은 맨 위 별도 표시)
+function buildHospGroups(names) {
+  const idx = n => { const i = hospInfoList.findIndex(h => h.name === n); return i < 0 ? 9999 : i; };
+  const map = new Map();
+  names.filter(n => n !== MY_HOSP).forEach(n => {
+    const g = hospGroup(n);
+    if (!map.has(g)) map.set(g, []);
+    map.get(g).push(n);
+  });
+  map.forEach(arr => arr.sort((a, b) => idx(a) - idx(b) || a.localeCompare(b, 'ko')));
+  const order = [...REGION_ORDER, REF_GROUP, '기타'];
+  return order.filter(g => map.has(g)).map(g => ({ group: g, names: map.get(g) }));
+}
+function rgIsOpen(g, names) {
+  if (g in rgOpen) return !!rgOpen[g];
+  return names.some(n => DEFAULT_ON.has(n));
+}
+function hospLabelSb(name) {
+  const info = metadata[name] || {}, isMy = name === MY_HOSP, isOn = DEFAULT_ON.has(name);
+  const date = info.updated ? info.updated.slice(0, 10) : '미수집';
+  return `<label class="hi ${isMy ? 'my' : ''} ${isOn ? 'on' : ''}" onclick="toggleHi(this,'sb')">
+      <input type="checkbox" value="${name}" ${isOn ? 'checked' : ''}>
+      <span class="h-dot"></span>
+      <span class="h-name">${name}${isMy ? ' ★' : ''}</span>
+      <span class="h-info">
+        <span class="h-cnt">${(info.count || 0).toLocaleString()}건</span>
+        <span class="h-date">${date}</span>
+      </span>
+    </label>`;
+}
+function hospLabelTop(name) {
+  const info = metadata[name] || {}, isMy = name === MY_HOSP, isOn = DEFAULT_ON.has(name);
+  const date = info.updated ? info.updated.slice(0, 10) : '미수집';
+  return `<label class="hc ${isMy ? 'my' : ''} ${isOn ? 'on' : ''}" onclick="toggleHi(this,'top')">
+      <input type="checkbox" value="${name}" ${isOn ? 'checked' : ''}>
+      <span class="hc-dot"></span>
+      <span class="hc-name">${name}${isMy ? ' ★' : ''}</span>
+      <span class="hc-meta">
+        <span class="hc-cnt">${(info.count || 0).toLocaleString()}</span>
+        <span class="hc-date">${date}</span>
+      </span>
+    </label>`;
+}
+
+function renderHospLists() {
+  if (!Object.keys(hospInfo).length) { renderHospListsFlat(); return; }   // 권역 정보 없음 → 기존 방식
+
+  const names  = Object.keys(metadata);
+  const groups = buildHospGroups(names);
+  const hasMy  = names.includes(MY_HOSP);
+  const missing = hospInfoList.filter(h => !(h.name in metadata)).map(h => h.name);
+  const noteHtml = missing.length
+    ? `<div class="rg-note">아직 수집되지 않은 병원 ${missing.length}곳<br>${missing.join(', ')}</div>` : '';
+
+  // 사이드바
+  document.getElementById('hospListSb').innerHTML =
+    (hasMy ? `<div class="rg-my">${hospLabelSb(MY_HOSP)}</div>` : '') +
+    groups.map(g => `<div class="rg ${rgIsOpen(g.group, g.names) ? 'open' : ''}" data-g="${escH(g.group)}">
+        <div class="rg-head" onclick="toggleRegion(this.parentElement)">
+          <span class="rg-arrow">▶</span><span class="rg-name">${escH(g.group)}</span>
+          <span class="rg-cnt">0/${g.names.length}</span>
+          <button class="rg-all" title="이 권역 전체 선택/해제" onclick="event.stopPropagation();selectRegion(this.closest('.rg').dataset.g)">전체</button>
+        </div>
+        <div class="rg-body">${g.names.map(hospLabelSb).join('')}</div>
+      </div>`).join('') +
+    `<button class="rg-fold" onclick="toggleAllRegions()">▾ 권역 모두 펼치기 / 접기</button>` + noteHtml;
+
+  // 상단 칩
+  const topEl = document.getElementById('hospChipsTop');
+  topEl.classList.add('grouped');
+  topEl.innerHTML =
+    (hasMy ? `<div class="rgt"><div class="rgt-head"><span class="rg-name">본원</span></div><div class="rgt-chips">${hospLabelTop(MY_HOSP)}</div></div>` : '') +
+    groups.map(g => `<div class="rgt" data-g="${escH(g.group)}">
+        <div class="rgt-head"><span class="rg-name">${escH(g.group)}</span>
+          <span class="rg-cnt">0/${g.names.length}</span>
+          <button class="rg-all" onclick="selectRegion(this.closest('.rgt').dataset.g)">전체</button></div>
+        <div class="rgt-chips">${g.names.map(hospLabelTop).join('')}</div>
+      </div>`).join('') +
+    (missing.length ? `<div class="rg-note" style="padding-left:0">아직 수집되지 않은 병원 ${missing.length}곳: ${missing.join(', ')}</div>` : '');
+
+  updateRegionCounts();
+}
+
+function toggleRegion(el) {
+  el.classList.toggle('open');
+  rgOpen[el.dataset.g] = el.classList.contains('open');
+  try { localStorage.setItem('rg_open', JSON.stringify(rgOpen)); } catch (e) {}
+}
+function toggleAllRegions() {
+  const all = [...document.querySelectorAll('#hospListSb .rg')];
+  const open = all.some(el => !el.classList.contains('open'));      // 하나라도 접혀 있으면 모두 펼침
+  all.forEach(el => { el.classList.toggle('open', open); rgOpen[el.dataset.g] = open; });
+  try { localStorage.setItem('rg_open', JSON.stringify(rgOpen)); } catch (e) {}
+}
+// 병원 체크 상태 일괄 설정 (사이드바·상단 둘 다 동기화)
+function setHospChecked(name, v) {
+  ['#hospListSb .hi', '#hospChipsTop .hc'].forEach(sel => {
+    document.querySelectorAll(sel).forEach(label => {
+      const cb = label.querySelector('input');
+      if (cb.value === name) { cb.checked = v; label.classList.toggle('on', v); }
+    });
+  });
+}
+function allHospNames() { return [...new Set([...document.querySelectorAll('#hospListSb .hi input')].map(c => c.value))]; }
+function selectRegion(g) {
+  const members = allHospNames().filter(n => n !== MY_HOSP && hospGroup(n) === g);
+  if (!members.length) return;
+  const checked = new Set(getCheckedHosps());
+  const allOn = members.every(n => checked.has(n));
+  members.forEach(n => setHospChecked(n, !allOn));
+  updateRegionCounts();
+}
+// 프리셋: 해당 병원만 선택 (본원은 항상 포함)
+function selectPreset(kind) {
+  const pick = { metro: isMetro, nonmetro: n => isTier5(n) && !isMetro(n) }[kind];
+  allHospNames().forEach(n => setHospChecked(n, n === MY_HOSP || (pick ? pick(n) : false)));
+  // 선택된 병원이 있는 권역은 펼쳐서 보여줌
+  document.querySelectorAll('#hospListSb .rg').forEach(el => {
+    const any = [...el.querySelectorAll('input')].some(c => c.checked);
+    el.classList.toggle('open', any); rgOpen[el.dataset.g] = any;
+  });
+  try { localStorage.setItem('rg_open', JSON.stringify(rgOpen)); } catch (e) {}
+  updateRegionCounts();
+}
+function updateRegionCounts() {
+  document.querySelectorAll('.rg, .rgt[data-g]').forEach(el => {
+    const inputs = [...el.querySelectorAll('input')];
+    const on = inputs.filter(c => c.checked).length;
+    const cnt = el.querySelector('.rg-cnt');
+    if (cnt) cnt.textContent = on + '/' + inputs.length;
+    const head = el.querySelector('.rg-head, .rgt-head');
+    if (head) head.classList.toggle('has-sel', on > 0);
+  });
+}
+
 function toggleHi(label, mode) {
   const cb = label.querySelector('input');
   cb.checked = !cb.checked;
@@ -787,12 +990,14 @@ function toggleHi(label, mode) {
     otherLabel.querySelector('input').checked = cb.checked;
     otherLabel.classList.toggle('on', cb.checked);
   }
+  updateRegionCounts();
 }
 function selectAll(mode, v) {
   const sbSel  = document.querySelectorAll('#hospListSb .hi input');
   const topSel = document.querySelectorAll('#hospChipsTop .hc input');
   sbSel .forEach(cb => { cb.checked=v; cb.closest('label').classList.toggle('on',v); });
   topSel.forEach(cb => { cb.checked=v; cb.closest('label').classList.toggle('on',v); });
+  updateRegionCounts();
 }
 function getCheckedHosps() {
   const cbs = document.querySelectorAll('#hospListSb .hi input:checked, #hospChipsTop .hc input:checked');
@@ -2554,7 +2759,7 @@ function renderAdminPanel() {
     ...Object.keys(metadata).filter(n=>n!==MY_HOSP)
   ];
 
-  const hospRows = sorted.map(name => {
+  const adminRow = name => {
     const info = metadata[name]||{};
     const isMy = name === MY_HOSP;
     return `<div class="admin-hosp-row">
@@ -2567,7 +2772,17 @@ function renderAdminPanel() {
         <span style="font-size:10px">${info.updated?info.updated.slice(0,10):'—'}</span>
       </span>
     </div>`;
-  }).join('');
+  };
+  let hospRows;
+  if (Object.keys(hospInfo).length) {
+    // 권역별 구분 + 아직 수집 안 된 병원도 목록에 포함 (선택해서 업데이트 가능)
+    const allNames = [...new Set([...Object.keys(metadata), ...hospInfoList.map(h => h.name)])];
+    hospRows = (allNames.includes(MY_HOSP) ? adminRow(MY_HOSP) : '') +
+      buildHospGroups(allNames).map(g =>
+        `<div class="admin-rg">${escH(g.group)} (${g.names.length})</div>` + g.names.map(adminRow).join('')).join('');
+  } else {
+    hospRows = sorted.map(adminRow).join('');
+  }
 
   document.getElementById('adminBody').innerHTML = `
     ${!isConfigured ? `<div class="admin-notice">

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-상급종합병원 비급여 데이터 수집기 V2.0
+상급종합병원 비급여 데이터 수집기 V2.1
 ────────────────────────────────────────────
 사용법:
   python collect_data.py             → 미수집 병원만 수집
@@ -14,6 +14,7 @@ V2.0 변경점
   · 수집 결과를 data/last_run.json 에 병원별로 기록 (성공/데이터없음/실패, 비슷한 병원명 후보)
   · 검색명이 공백 차이만 있는 경우 자동 보정 (병원명이 완전히 같을 때만)
   · 기존 수집·저장 방식과 metadata.json 구조는 그대로 유지
+V2.1: 검색명 진단 시 "…대학교 ○○병원", "…의과대학 ○○병원" 처럼 띄어쓴 등록명도 찾도록 보강
 """
 
 import requests
@@ -224,6 +225,7 @@ def fetch_hospital(display_name: str, search_name: str, seen_names: set = None, 
 #  검색명 진단 (데이터 0건일 때만 사용 · 어떤 오류도 밖으로 내보내지 않음)
 # ═══════════════════════════════════════════════════════
 _ENTITY_TOKENS = ("학교법인", "의료법인", "재단법인", "사단법인", "사회복지법인")
+_SPACE_AFTER_TOKENS = ("대학교", "의과대학", "재단", "학원")   # 심평원 등록명에서 이 단어 뒤를 띄어쓰는 경우가 있음
 
 
 def _get_xml(params: dict, attempts: int = 2):
@@ -269,6 +271,11 @@ def _probe_variants(search_name: str) -> list:
         if nn.startswith(t):
             variants.append(f"{t} {nn[len(t):len(t) + 6]}")
             break
+    for tok in _SPACE_AFTER_TOKENS:                # '가톨릭대학교성빈센트…' → '가톨릭대학교 성빈센트병원'
+        i = nn.find(tok)
+        if i >= 0 and i + len(tok) < len(nn):
+            j = i + len(tok)
+            variants.append(f"{nn[:j]} {nn[j:j + 7]}")
     variants.append(nn[:5])
     seen, out = set(), []
     for v in variants:
@@ -412,7 +419,7 @@ def main():
 
     # ── 수집 루프 ──────────────────────────────────────
     print(f"\n{'='*55}")
-    print(f"  상급종합병원 비급여 데이터 수집기 V2.0")
+    print(f"  상급종합병원 비급여 데이터 수집기 V2.1")
     print(f"  대상: {len(targets)}개 병원")
     print(f"{'='*55}\n")
 
