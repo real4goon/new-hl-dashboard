@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
 """
-상급종합병원 비급여 데이터 수집기 V1.0
+상급종합병원 비급여 데이터 수집기 V2.0
 ────────────────────────────────────────────
 사용법:
   python collect_data.py             → 미수집 병원만 수집
   python collect_data.py --force     → 전체 재수집
   python collect_data.py --hospital 서울대병원  → 특정 병원만
+  python collect_data.py --hospital 신규        → 아직 한 번도 수집하지 않은 병원만
   python collect_data.py --list      → 병원 목록 출력
+
+V2.0 변경점
+  · 병원 목록을 hospitals.json 으로 분리 (리포 맨 위 또는 data 폴더, 없거나 깨지면 내장 기본 24곳 사용)
+  · 수집 결과를 data/last_run.json 에 병원별로 기록 (성공/데이터없음/실패, 비슷한 병원명 후보)
+  · 검색명이 공백 차이만 있는 경우 자동 보정 (병원명이 완전히 같을 때만)
+  · 기존 수집·저장 방식과 metadata.json 구조는 그대로 유지
 """
 
 import requests
 import json
 import os
+import re
 import sys
 import time
+import difflib
 import argparse
 from xml.etree import ElementTree as ET
 from datetime import datetime
@@ -46,7 +55,7 @@ CONFIG = {
 #  형식: "표시명(짧게)": "API 검색용 실제 병원명"
 #  ※ API 검색명이 맞지 않으면 데이터 0건 → 터미널에서 확인 후 수정
 # ═══════════════════════════════════════════════════════
-HOSPITALS = {
+_DEFAULT_HOSPITALS = {   # hospitals.json 이 없을 때만 쓰는 내장 기본 목록
     # ── 서울 ──────────────────────────────────────────
     "서울대병원"     : "서울대학교병원",
     "삼성서울병원"   : "삼성서울병원",
@@ -75,11 +84,62 @@ HOSPITALS = {
     "국립암센터"     : "국립암센터",
 }
 
+# 병원 목록 파일: 리포 맨 위(루트)에 있으면 그것을, 없으면 data 폴더 안 파일을 사용
+HOSPITALS_FILE = next((p for p in ("hospitals.json", os.path.join(CONFIG["output_dir"], "hospitals.json"))
+                       if os.path.exists(p)), "hospitals.json")
+LAST_RUN_FILE  = os.path.join(CONFIG["output_dir"], "last_run.json")
+
+
+def load_hospitals() -> dict:
+    """
+    data/hospitals.json → {표시명: 병원정보} 반환.
+    파일이 없거나 형식이 잘못돼도 수집이 멈추지 않도록 내장 기본 목록으로 대체한다.
+    """
+    default = {n: {"name": n, "searchName": s} for n, s in _DEFAULT_HOSPITALS.items()}
+    if not os.path.exists(HOSPITALS_FILE):
+        print(f"ℹ  hospitals.json 없음 → 내장 기본 목록 {len(default)}곳 사용")
+        return default
+    try:
+        with open(HOSPITALS_FILE, encoding="utf-8") as f:
+            raw = json.load(f)
+        rows = raw.get("hospitals") if isinstance(raw, dict) else raw
+        result = {}
+        for r in rows:
+            name   = str(r.get("name", "")).strip()
+            search = str(r.get("searchName", "")).strip()
+            if not name or not search:
+                print(f"⚠  hospitals.json: name/searchName 이 비어 있어 무시합니다 → {r}")
+                continue
+            if r.get("enabled", True) is False:
+                continue
+            if name in result:
+                print(f"⚠  hospitals.json: 표시명 중복 '{name}' → 앞의 항목만 사용")
+                continue
+            result[name] = {**r, "name": name, "searchName": search}
+        if not result:
+            raise ValueError("유효한 병원 항목이 없음")
+        return result
+    except Exception as e:
+        print(f"⚠  hospitals.json 읽기 실패 ({e}) → 내장 기본 목록 사용")
+        return default
+
+
+HOSPITAL_INFO = load_hospitals()                                   # 표시명 → 상세정보
+HOSPITALS     = {n: i["searchName"] for n, i in HOSPITAL_INFO.items()}   # 표시명 → 검색명 (기존 코드 호환)
+
 # ═══════════════════════════════════════════════════════
 #  수집 함수
 # ═══════════════════════════════════════════════════════
-def fetch_hospital(display_name: str, search_name: str) -> list:
-    """단일 병원 전 페이지 수집 → 레코드 리스트 반환"""
+def _norm(s: str) -> str:
+    """공백 제거 (병원명 비교용)"""
+    return re.sub(r"\s+", "", s or "")
+
+
+def fetch_hospital(display_name: str, search_name: str, seen_names: set = None, name_filter: str = None) -> list:
+    """단일 병원 전 페이지 수집 → 레코드 리스트 반환
+    seen_names : 응답에 등장한 병원명(yadmNm)을 모아둘 set (선택)
+    name_filter: 공백 제거한 병원명이 이 값과 같은 행만 사용 (선택, 자동 보정 때만 사용)
+    """
     cfg    = CONFIG
     result = []
     page   = 1
@@ -126,6 +186,11 @@ def fetch_hospital(display_name: str, search_name: str) -> list:
 
         for node in items:
             g = lambda t: (node.findtext(t) or "").strip()
+            yadm = g("yadmNm")
+            if seen_names is not None and yadm:
+                seen_names.add(yadm)
+            if name_filter and yadm and _norm(yadm) != name_filter:
+                continue
             raw = g("adtFrDd")
             date_str = f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}" if len(raw) == 8 else (raw or "-")
             try:
@@ -156,9 +221,109 @@ def fetch_hospital(display_name: str, search_name: str) -> list:
 
 
 # ═══════════════════════════════════════════════════════
+#  검색명 진단 (데이터 0건일 때만 사용 · 어떤 오류도 밖으로 내보내지 않음)
+# ═══════════════════════════════════════════════════════
+_ENTITY_TOKENS = ("학교법인", "의료법인", "재단법인", "사단법인", "사회복지법인")
+
+
+def _get_xml(params: dict, attempts: int = 2):
+    for attempt in range(attempts):
+        try:
+            resp = requests.get(CONFIG["base_url"], params=params, timeout=CONFIG["timeout"])
+            resp.raise_for_status()
+            root = ET.fromstring(resp.text)
+            code = root.findtext(".//resultCode") or ""
+            if code and code not in ("00", "0000"):
+                return None
+            return root
+        except Exception:
+            time.sleep(2 ** attempt)
+    return None
+
+
+def _probe_names(prefix: str, max_pages: int = 3) -> set:
+    """prefix 로 조회해 응답에 나온 병원명(yadmNm) 모음 (최대 max_pages 페이지)"""
+    names = set()
+    for page in range(1, max_pages + 1):
+        root = _get_xml({"ServiceKey": CONFIG["api_key"], "pageNo": page,
+                         "numOfRows": CONFIG["chunk"], "yadmNm": prefix})
+        if root is None:
+            break
+        items = root.findall(".//item")
+        if not items:
+            break
+        for node in items:
+            nm = (node.findtext("yadmNm") or "").strip()
+            if nm:
+                names.add(nm)
+        if len(items) < CONFIG["chunk"]:
+            break
+        time.sleep(CONFIG["delay"])
+    return names
+
+
+def _probe_variants(search_name: str) -> list:
+    n, nn = search_name.strip(), _norm(search_name)
+    variants = [n[:10]]
+    for t in _ENTITY_TOKENS:                       # '학교법인건양교육…' → '학교법인 건양교육'
+        if nn.startswith(t):
+            variants.append(f"{t} {nn[len(t):len(t) + 6]}")
+            break
+    variants.append(nn[:5])
+    seen, out = set(), []
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v); out.append(v)
+    return out
+
+
+def diagnose_name(search_name: str):
+    """
+    반환: (exact, others)
+      exact  : 공백만 다르고 글자는 완전히 같은 등록명 (있으면 자동 보정에 사용)
+      others : 비슷한 등록명 후보 (최대 5개, 참고용)
+    """
+    try:
+        target, found = _norm(search_name), set()
+        for v in _probe_variants(search_name):
+            found |= _probe_names(v)
+            if any(_norm(x) == target for x in found):
+                break
+        exact  = sorted(x for x in found if _norm(x) == target)
+        others = sorted((x for x in found if _norm(x) != target),
+                        key=lambda x: -difflib.SequenceMatcher(None, _norm(x), target).ratio())[:5]
+        return exact, others
+    except Exception as e:
+        print(f"    ℹ  검색명 진단 중 오류(무시): {e}")
+        return [], []
+
+
+def write_last_run(results: dict):
+    """data/last_run.json 에 병원별 결과를 합쳐서 기록 (일부 병원만 수집해도 다른 병원 기록은 유지)"""
+    if not results:
+        return
+    try:
+        data = {"updated": "", "hospitals": {}}
+        if os.path.exists(LAST_RUN_FILE):
+            try:
+                with open(LAST_RUN_FILE, encoding="utf-8") as f:
+                    old = json.load(f)
+                if isinstance(old.get("hospitals"), dict):
+                    data["hospitals"] = old["hospitals"]
+            except Exception:
+                pass
+        data["hospitals"].update(results)
+        data["updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        with open(LAST_RUN_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=1)
+    except Exception as e:
+        print(f"⚠  last_run.json 기록 실패(수집 결과에는 영향 없음): {e}")
+
+
+# ═══════════════════════════════════════════════════════
 #  저장 함수
 # ═══════════════════════════════════════════════════════
-def save_hospital(display_name: str, items: list, metadata: dict) -> dict:
+def save_hospital(display_name: str, items: list, metadata: dict, extra: dict = None) -> dict:
     """JSON 저장 + metadata.json 업데이트"""
     out_dir   = CONFIG["output_dir"]
     safe_name = display_name.replace("/", "_")
@@ -173,6 +338,9 @@ def save_hospital(display_name: str, items: list, metadata: dict) -> dict:
         "filename"   : f"{safe_name}.json",
         "searchName" : HOSPITALS.get(display_name, ""),
     }
+    for k, v in (extra or {}).items():        # searchName(자동 보정 시), matchedNames 만 덧붙임
+        if v:
+            metadata[display_name][k] = v
     _save_meta(metadata)
     return metadata
 
@@ -205,14 +373,15 @@ def build_all_data(metadata: dict) -> int:
 def main():
     parser = argparse.ArgumentParser(description="상급종합병원 비급여 데이터 수집기")
     parser.add_argument("--force",    action="store_true", help="이미 수집된 병원도 재수집")
-    parser.add_argument("--hospital", type=str,            help="특정 병원만 수집 (표시명 입력)")
+    parser.add_argument("--hospital", type=str,            help="특정 병원만 수집 (표시명 입력, '신규' = 미수집 병원만)")
     parser.add_argument("--list",     action="store_true", help="병원 목록 출력 후 종료")
     args = parser.parse_args()
 
     if args.list:
         print("\n수집 가능한 병원 목록:")
-        for i, (name, search) in enumerate(HOSPITALS.items(), 1):
-            print(f"  {i:2d}. {name:15s}  →  {search}")
+        for i, (name, info) in enumerate(HOSPITAL_INFO.items(), 1):
+            tag = f"[{info.get('region', '-')}]" if info.get("region") else ""
+            print(f"  {i:2d}. {name:15s} {tag:12s} →  {info['searchName']}")
         return
 
     os.makedirs(CONFIG["output_dir"], exist_ok=True)
@@ -225,7 +394,14 @@ def main():
             metadata = json.load(f)
 
     # 수집 대상
-    if args.hospital:
+    if args.hospital == "신규":
+        targets = {n: s for n, s in HOSPITALS.items()
+                   if n not in metadata or not os.path.exists(
+                       os.path.join(CONFIG["output_dir"], f"{n.replace('/', '_')}.json"))}
+        if not targets:
+            print("ℹ  아직 수집하지 않은 병원이 없습니다 (모두 수집됨).")
+            return
+    elif args.hospital:
         if args.hospital not in HOSPITALS:
             print(f"❌ 알 수 없는 병원: '{args.hospital}'")
             print(f"   사용 가능한 표시명: {list(HOSPITALS.keys())}")
@@ -236,12 +412,15 @@ def main():
 
     # ── 수집 루프 ──────────────────────────────────────
     print(f"\n{'='*55}")
-    print(f"  상급종합병원 비급여 데이터 수집기 V1.0")
+    print(f"  상급종합병원 비급여 데이터 수집기 V2.0")
     print(f"  대상: {len(targets)}개 병원")
     print(f"{'='*55}\n")
 
     success = 0
     failed  = []
+    run     = {}      # 이번 실행의 병원별 결과 → last_run.json
+    now     = lambda: datetime.now().strftime("%Y-%m-%d %H:%M")
+
     for display_name, search_name in targets.items():
         cache_path = os.path.join(CONFIG["output_dir"],
                                   f"{display_name.replace('/', '_')}.json")
@@ -257,16 +436,50 @@ def main():
         print(f"  검색명: {search_name}")
 
         try:
-            items = fetch_hospital(display_name, search_name)
+            seen        = set()
+            used_search = search_name
+            resolved    = None
+            suggestions = []
+
+            items = fetch_hospital(display_name, search_name, seen_names=seen)
+
+            if not items:      # 0건 → 공백 차이 등으로 못 찾은 것인지 진단
+                exact, others = diagnose_name(search_name)
+                if exact:
+                    print(f"  🔎 공백 표기만 다른 등록명 발견: '{exact[0]}' → 이 이름으로 재수집")
+                    seen = set()
+                    items = fetch_hospital(display_name, exact[0], seen_names=seen,
+                                           name_filter=_norm(search_name))
+                    used_search, resolved = exact[0], exact[0]
+                else:
+                    suggestions = others
+
             if items:
-                metadata = save_hospital(display_name, items, metadata)
+                metadata = save_hospital(display_name, items, metadata,
+                                         extra={"searchName": used_search if resolved else "",
+                                                "matchedNames": sorted(seen)})
                 print(f"  ✅ 완료: {len(items):,}건 저장")
                 success += 1
+                entry = {"status": "ok", "count": len(items), "time": now(), "searchName": used_search}
+                if resolved:
+                    entry["note"] = (f"공백 표기 차이를 자동 보정했습니다. hospitals.json 의 searchName 을 "
+                                     f"'{resolved}' 로 바꾸면 다음부터 바로 수집됩니다.")
+                if len(seen) > 1 and not resolved:
+                    entry["warning"] = "검색 결과에 서로 다른 병원명이 섞여 있습니다: " + ", ".join(sorted(seen))
+                    print(f"  ⚠  {entry['warning']}")
+                run[display_name] = entry
             else:
                 print(f"  ⚠  데이터 없음 → 저장 스킵 (API 검색명 확인 필요)")
+                for c in suggestions:
+                    print(f"     후보: {c}")
+                run[display_name] = {"status": "no_data", "time": now(), "searchName": search_name,
+                                     "suggestions": suggestions,
+                                     "note": "검색명으로 조회된 데이터가 없습니다. suggestions 가 있으면 그 이름을 hospitals.json 의 searchName 에 넣어 보세요."}
         except Exception as e:
             print(f"  ❌ 실패: {e}")
             failed.append(display_name)
+            run[display_name] = {"status": "failed", "time": now(), "error": str(e)[:300],
+                                 "keptCache": bool(already)}
             if already:
                 print(f"  → 기존 캐시 유지")
                 success += 1
@@ -278,6 +491,11 @@ def main():
     print(f"  성공: {success}/{len(targets)}개 병원")
     print(f"{'='*55}\n")
 
+    write_last_run(run)
+
+    no_data = [n for n, r in run.items() if r["status"] == "no_data"]
+    if no_data:
+        print(f"⚠ 데이터 없음 ({len(no_data)}개): {', '.join(no_data)}  → data/last_run.json 의 suggestions 확인")
     if failed:
         print(f"⚠ 실패 병원 ({len(failed)}개): {', '.join(failed)}")
         if len(failed) == len(targets):
