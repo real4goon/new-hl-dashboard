@@ -1,134 +1,434 @@
 {
   "서울대병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:30",
     "count": 913,
     "filename": "서울대병원.json",
-    "searchName": "서울대학교병원"
+    "searchName": "서울대학교병원",
+    "matchedNames": [
+      "서울대학교병원"
+    ]
   },
   "삼성서울병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:30",
     "count": 1175,
     "filename": "삼성서울병원.json",
-    "searchName": "삼성서울병원"
+    "searchName": "삼성서울병원",
+    "matchedNames": [
+      "삼성서울병원"
+    ]
   },
   "서울아산병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:30",
     "count": 1420,
     "filename": "서울아산병원.json",
-    "searchName": "재단법인아산사회복지재단 서울아산병원"
+    "searchName": "재단법인아산사회복지재단 서울아산병원",
+    "matchedNames": [
+      "재단법인아산사회복지재단 서울아산병원"
+    ]
   },
   "세브란스병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 1339,
     "filename": "세브란스병원.json",
-    "searchName": "연세대학교의과대학세브란스병원"
+    "searchName": "연세대학교의과대학세브란스병원",
+    "matchedNames": [
+      "연세대학교의과대학세브란스병원"
+    ]
   },
   "서울성모병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 1170,
     "filename": "서울성모병원.json",
-    "searchName": "학교법인가톨릭학원가톨릭대학교서울성모병원"
+    "searchName": "학교법인가톨릭학원가톨릭대학교서울성모병원",
+    "matchedNames": [
+      "학교법인가톨릭학원가톨릭대학교서울성모병원"
+    ]
   },
   "고대안암병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 839,
     "filename": "고대안암병원.json",
-    "searchName": "학교법인 고려중앙학원 고려대학교의과대학부속병원(안암병원)"
+    "searchName": "학교법인 고려중앙학원 고려대학교의과대학부속병원(안암병원)",
+    "matchedNames": [
+      "학교법인 고려중앙학원 고려대학교의과대학부속병원(안암병원)"
+    ]
   },
   "고대구로병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 1002,
     "filename": "고대구로병원.json",
-    "searchName": "고려대학교의과대학부속구로병원"
+    "searchName": "고려대학교의과대학부속구로병원",
+    "matchedNames": [
+      "고려대학교의과대학부속구로병원"
+    ]
   },
   "경희대병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 491,
     "filename": "경희대병원.json",
-    "searchName": "경희대학교병원"
+    "searchName": "경희대학교병원",
+    "matchedNames": [
+      "경희대학교병원"
+    ]
   },
   "한양대병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 666,
     "filename": "한양대병원.json",
-    "searchName": "한양대학교병원"
+    "searchName": "한양대학교병원",
+    "matchedNames": [
+      "한양대학교병원"
+    ]
   },
   "중앙대병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 732,
     "filename": "중앙대병원.json",
-    "searchName": "중앙대학교병원"
+    "searchName": "중앙대학교병원",
+    "matchedNames": [
+      "중앙대학교병원"
+    ]
   },
   "목동병원": {
-    "updated": "2026-11-02 06:58",
+    "updated": "2026-11-02 08:31",
     "count": 747,
     "filename": "목동병원.json",
-    "searchName": "이화여자대학교의과대학부속목동병원"
+    "searchName": "이화여자대학교의과대학부속목동병원",
+    "matchedNames": [
+      "이화여자대학교의과대학부속목동병원"
+    ]
   },
   "강북삼성병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 1277,
     "filename": "강북삼성병원.json",
-    "searchName": "강북삼성병원"
+    "searchName": "강북삼성병원",
+    "matchedNames": [
+      "강북삼성병원"
+    ]
   },
   "한림성심병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 659,
     "filename": "한림성심병원.json",
-    "searchName": "한림대학교성심병원"
+    "searchName": "한림대학교성심병원",
+    "matchedNames": [
+      "한림대학교성심병원"
+    ]
   },
   "아주대병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 949,
     "filename": "아주대병원.json",
-    "searchName": "아주대학교병원"
+    "searchName": "아주대학교병원",
+    "matchedNames": [
+      "아주대학교병원"
+    ]
   },
   "분당서울대병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 1091,
     "filename": "분당서울대병원.json",
-    "searchName": "분당서울대학교병원"
+    "searchName": "분당서울대학교병원",
+    "matchedNames": [
+      "분당서울대학교병원"
+    ]
   },
   "길병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 797,
     "filename": "길병원.json",
-    "searchName": "의료법인 길의료재단 길병원"
+    "searchName": "의료법인 길의료재단 길병원",
+    "matchedNames": [
+      "의료법인 길의료재단 길병원"
+    ]
   },
   "인하대병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 1216,
     "filename": "인하대병원.json",
-    "searchName": "인하대학교의과대학부속병원"
+    "searchName": "인하대학교의과대학부속병원",
+    "matchedNames": [
+      "인하대학교의과대학부속병원"
+    ]
   },
   "고대안산병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:32",
     "count": 1075,
     "filename": "고대안산병원.json",
-    "searchName": "고려대학교의과대학부속안산병원"
+    "searchName": "고려대학교의과대학부속안산병원",
+    "matchedNames": [
+      "고려대학교의과대학부속안산병원"
+    ]
   },
   "부천성모병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:33",
     "count": 700,
     "filename": "부천성모병원.json",
-    "searchName": "가톨릭대학교부천성모병원"
+    "searchName": "가톨릭대학교부천성모병원",
+    "matchedNames": [
+      "가톨릭대학교부천성모병원"
+    ]
   },
   "의정부성모병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:33",
     "count": 863,
     "filename": "의정부성모병원.json",
-    "searchName": "가톨릭대학교의정부성모병원"
+    "searchName": "가톨릭대학교의정부성모병원",
+    "matchedNames": [
+      "가톨릭대학교의정부성모병원"
+    ]
   },
   "인천성모병원": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:33",
     "count": 868,
     "filename": "인천성모병원.json",
-    "searchName": "가톨릭대학교인천성모병원"
+    "searchName": "가톨릭대학교인천성모병원",
+    "matchedNames": [
+      "가톨릭대학교인천성모병원"
+    ]
   },
   "국립암센터": {
-    "updated": "2026-11-02 06:59",
+    "updated": "2026-11-02 08:33",
     "count": 447,
     "filename": "국립암센터.json",
-    "searchName": "국립암센터"
+    "searchName": "국립암센터",
+    "matchedNames": [
+      "국립암센터"
+    ]
+  },
+  "강남세브란스": {
+    "updated": "2026-11-02 08:31",
+    "count": 990,
+    "filename": "강남세브란스.json",
+    "searchName": "연세대학교의과대학 강남세브란스병원",
+    "matchedNames": [
+      "연세대학교의과대학 강남세브란스병원"
+    ]
+  },
+  "건국대병원": {
+    "updated": "2026-11-02 08:32",
+    "count": 508,
+    "filename": "건국대병원.json",
+    "searchName": "건국대학교병원",
+    "matchedNames": [
+      "건국대학교병원"
+    ]
+  },
+  "순천향부천병원": {
+    "updated": "2026-11-02 08:33",
+    "count": 990,
+    "filename": "순천향부천병원.json",
+    "searchName": "순천향대학교부속부천병원",
+    "matchedNames": [
+      "순천향대학교부속부천병원"
+    ]
+  },
+  "강릉아산병원": {
+    "updated": "2026-11-02 08:33",
+    "count": 497,
+    "filename": "강릉아산병원.json",
+    "searchName": "강릉아산병원",
+    "matchedNames": [
+      "강릉아산병원"
+    ]
+  },
+  "충북대병원": {
+    "updated": "2026-11-02 08:33",
+    "count": 674,
+    "filename": "충북대병원.json",
+    "searchName": "충북대학교병원",
+    "matchedNames": [
+      "충북대학교병원"
+    ]
+  },
+  "단국대병원": {
+    "updated": "2026-11-02 08:33",
+    "count": 650,
+    "filename": "단국대병원.json",
+    "searchName": "단국대학교의과대학부속병원",
+    "matchedNames": [
+      "단국대학교의과대학부속병원"
+    ]
+  },
+  "충남대병원": {
+    "updated": "2026-11-02 08:33",
+    "count": 839,
+    "filename": "충남대병원.json",
+    "searchName": "충남대학교병원",
+    "matchedNames": [
+      "충남대학교병원"
+    ]
+  },
+  "건양대병원": {
+    "updated": "2026-11-02 08:33",
+    "count": 975,
+    "filename": "건양대병원.json",
+    "searchName": "학교법인 건양교육재단 건양대학교병원",
+    "matchedNames": [
+      "학교법인 건양교육재단 건양대학교병원"
+    ]
+  },
+  "원광대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 827,
+    "filename": "원광대병원.json",
+    "searchName": "원광대학교병원",
+    "matchedNames": [
+      "원광대학교병원"
+    ]
+  },
+  "전북대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 790,
+    "filename": "전북대병원.json",
+    "searchName": "전북대학교병원",
+    "matchedNames": [
+      "전북대학교병원"
+    ]
+  },
+  "전남대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 825,
+    "filename": "전남대병원.json",
+    "searchName": "전남대학교병원",
+    "matchedNames": [
+      "전남대학교병원"
+    ]
+  },
+  "조선대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 410,
+    "filename": "조선대병원.json",
+    "searchName": "조선대학교병원",
+    "matchedNames": [
+      "조선대학교병원"
+    ]
+  },
+  "화순전남대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 742,
+    "filename": "화순전남대병원.json",
+    "searchName": "화순전남대학교병원",
+    "matchedNames": [
+      "화순전남대학교병원"
+    ]
+  },
+  "경북대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 507,
+    "filename": "경북대병원.json",
+    "searchName": "경북대학교병원",
+    "matchedNames": [
+      "경북대학교병원"
+    ]
+  },
+  "계명대동산병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 1367,
+    "filename": "계명대동산병원.json",
+    "searchName": "계명대학교동산병원",
+    "matchedNames": [
+      "계명대학교동산병원"
+    ]
+  },
+  "대구가톨릭대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 880,
+    "filename": "대구가톨릭대병원.json",
+    "searchName": "대구가톨릭대학교병원",
+    "matchedNames": [
+      "대구가톨릭대학교병원"
+    ]
+  },
+  "영남대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 942,
+    "filename": "영남대병원.json",
+    "searchName": "영남대학교병원",
+    "matchedNames": [
+      "영남대학교병원"
+    ]
+  },
+  "칠곡경북대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 514,
+    "filename": "칠곡경북대병원.json",
+    "searchName": "칠곡경북대학교병원",
+    "matchedNames": [
+      "칠곡경북대학교병원"
+    ]
+  },
+  "고신대복음병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 1035,
+    "filename": "고신대복음병원.json",
+    "searchName": "고신대학교복음병원",
+    "matchedNames": [
+      "고신대학교복음병원"
+    ]
+  },
+  "동아대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 664,
+    "filename": "동아대병원.json",
+    "searchName": "동아대학교병원",
+    "matchedNames": [
+      "동아대학교병원"
+    ]
+  },
+  "부산대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 651,
+    "filename": "부산대병원.json",
+    "searchName": "부산대학교병원",
+    "matchedNames": [
+      "부산대학교병원"
+    ]
+  },
+  "양산부산대병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 608,
+    "filename": "양산부산대병원.json",
+    "searchName": "양산부산대학교병원",
+    "matchedNames": [
+      "양산부산대학교병원"
+    ]
+  },
+  "인제대부산백병원": {
+    "updated": "2026-11-02 08:34",
+    "count": 826,
+    "filename": "인제대부산백병원.json",
+    "searchName": "인제대학교부산백병원",
+    "matchedNames": [
+      "인제대학교부산백병원"
+    ]
+  },
+  "울산대병원": {
+    "updated": "2026-11-02 08:35",
+    "count": 787,
+    "filename": "울산대병원.json",
+    "searchName": "학교법인 울산공업학원 울산대학교병원",
+    "matchedNames": [
+      "학교법인 울산공업학원 울산대학교병원"
+    ]
+  },
+  "경상국립대병원": {
+    "updated": "2026-11-02 08:35",
+    "count": 786,
+    "filename": "경상국립대병원.json",
+    "searchName": "경상국립대학교병원",
+    "matchedNames": [
+      "경상국립대학교병원"
+    ]
+  },
+  "삼성창원병원": {
+    "updated": "2026-11-02 08:35",
+    "count": 1250,
+    "filename": "삼성창원병원.json",
+    "searchName": "학교법인성균관대학삼성창원병원",
+    "matchedNames": [
+      "학교법인성균관대학삼성창원병원"
+    ]
   }
 }
