@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V7.2</title>
+<title>비급여 비교 대시보드 V7.3</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -575,7 +575,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>전국 상급종합병원 V7.2</p>
+      <p>전국 상급종합병원 V7.3</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -747,6 +747,9 @@ async function loadMetadata() {
     await loadHospInfo();          // 권역 정보(hospitals.json) — 없으면 기존 목록 방식으로 동작
     if (Object.keys(hospInfo).length) {   // 병원 목록(hospitals.json)에 없는 병원은 화면에서 제외 (예전 수집 데이터가 남아 있어도 무시)
       Object.keys(metadata).forEach(n => { if (!(n in hospInfo)) delete metadata[n]; });
+      // 처음 열었을 때(새로고침 포함)의 기본 선택: 수도권(서울·경기·인천) 병원 전체 + 본원
+      const metro = Object.keys(metadata).filter(n => n === MY_HOSP || isMetro(n));
+      if (metro.length > 1) { DEFAULT_ON.clear(); metro.forEach(n => DEFAULT_ON.add(n)); }
     }
     const dates = Object.values(metadata).map(m => m.updated).filter(Boolean).sort().reverse();
     const badge = dates.length ? `최근 수집: ${dates[0]}` : '수집 데이터 있음';
@@ -824,7 +827,7 @@ async function loadHospInfo() {
       const j = await r.json();
       const rows = Array.isArray(j) ? j : j.hospitals;
       if (!Array.isArray(rows) || !rows.length) continue;
-      hospInfoList = rows.filter(h => h && h.name);
+      hospInfoList = rows.filter(h => h && h.name && h.enabled !== false);
       hospInfo = {};
       hospInfoList.forEach(h => { hospInfo[h.name] = h; });
       return true;
@@ -836,7 +839,8 @@ async function loadHospInfo() {
 function hospGroup(name) {
   const h = hospInfo[name];
   if (!h) return '기타';
-  return h.tier === '참고' ? REF_GROUP : (h.region || '기타');
+  if (h.tier === '참고') return REF_GROUP;
+  return REGION_ORDER.includes(h.region) ? h.region : '기타';   // 오타 등 알 수 없는 권역은 '기타'로 표시
 }
 function isTier5(name) { const h = hospInfo[name]; return !!h && h.tier !== '참고'; }
 function isMetro(name) { const h = hospInfo[name]; return isTier5(name) && METRO_REGIONS.has(h.region); }
