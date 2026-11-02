@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.9</title>
+<title>비급여 비교 대시보드 V7.0</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -291,6 +291,14 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .rp-table tbody tr.rp-my td{background:#FFC000;color:#1E293B;font-weight:800;}
 .rp-table tbody tr.rp-avg td,.rp-table tbody tr.rp-diff td{background:#DCE6F1;color:#1E293B;font-weight:800;}
 .rp-table tbody tr.rp-avg td.rp-hosp,.rp-table tbody tr.rp-diff td.rp-hosp{white-space:normal;}
+.rp-chk{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#475569;font-weight:600;cursor:pointer;}
+.rp-chk input{accent-color:#2E86C1;cursor:pointer;}
+.rp-sortchip{display:inline-flex;align-items:center;gap:7px;padding:4px 5px 4px 11px;border-radius:14px;background:#E8F1FB;color:#1F4E8C;font-size:11.5px;font-weight:700;}
+.rp-sortchip button{border:none;background:#fff;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:inherit;}
+.rp-sortchip button:hover{color:#D92D20;}
+.rp-table th.rp-sortable{cursor:pointer;user-select:none;}
+.rp-table th.rp-sortable:hover{background:#3A68B5;}
+.rp-table th.rp-sorted{background:#1F4E8C;}
 .rp-star{color:#E8445A;font-weight:800;margin-left:1px;}
 .rp-neg{color:#D92D20;}
 .rp-pos{color:#1D4ED8;}
@@ -544,7 +552,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.9</p>
+      <p>서울·경기 상급종합병원 V7.0</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1190,6 +1198,7 @@ function renderTableWithNames(keys) {
     getResultArea().innerHTML = html;
     rpApplyWidths();
     rpBindResize();
+    rpBindSort();
     return;
   }
 
@@ -1702,6 +1711,7 @@ function rpResetWidth() {
 // 머리글 경계선 드래그로 열 하나만 조정
 function rpBindResize() {
   document.querySelectorAll('.rp-rz').forEach(h => {
+    h.addEventListener('click', e => e.stopPropagation());
     h.addEventListener('mousedown', e => {
       e.preventDefault(); e.stopPropagation();
       const k = h.dataset.k;
@@ -1725,6 +1735,26 @@ function rpBindResize() {
   });
 }
 function rpPxToChar(px) { return Math.max(6, Math.round((px - 5) / 7 * 10) / 10); }
+
+/* ── 복수금액 * 표시 / 순위 정렬 ── */
+let rpShowStar = (() => { try { return localStorage.getItem('rp_star') !== '0'; } catch (e) { return true; } })();
+let rpSort = { key: null, dir: 'asc' };   // dir: 'asc' = 1위부터(높은 금액 먼저), 'desc' = 마지막 순위부터
+function rpToggleStar(on) {
+  rpShowStar = !!on;
+  try { localStorage.setItem('rp_star', on ? '1' : '0'); } catch (e) {}
+  renderTable();
+}
+// 항목 머리글 클릭: 1위부터 → 마지막 순위부터 → 해제 (가나다순) 순환
+function rpSortBy(key) {
+  if (rpSort.key !== key) rpSort = { key, dir: 'asc' };
+  else if (rpSort.dir === 'asc') rpSort = { key, dir: 'desc' };
+  else rpSort = { key: null, dir: 'asc' };
+  renderTable();
+}
+function rpClearSort() { rpSort = { key: null, dir: 'asc' }; renderTable(); }
+function rpBindSort() {
+  document.querySelectorAll('.rp-table th[data-sk]').forEach(th => th.addEventListener('click', () => rpSortBy(th.dataset.sk)));
+}
 
 function rpModeLabel() {
   return chartGridMode==='min' ? '최솟값' : chartGridMode==='max' ? '최댓값' : '평균값';
@@ -1794,6 +1824,19 @@ function buildReportModel(keys) {
     cells: cols.map(c => c.stats.get(h) || null),
   }));
 
+  // 순위순 정렬 (선택한 항목 기준, 데이터 없는 병원은 항상 맨 아래, 동순위는 가나다순)
+  const sk = rpSort.key ? cols.findIndex(c => c.key === rpSort.key) : -1;
+  if (sk >= 0) {
+    hosps.sort((a, b) => {
+      const x = a.cells[sk], y = b.cells[sk];
+      if (!x && !y) return a.hosp.localeCompare(b.hosp, 'ko');
+      if (!x) return 1;
+      if (!y) return -1;
+      const d = rpSort.dir === 'desc' ? y.rank - x.rank : x.rank - y.rank;
+      return d || a.hosp.localeCompare(b.hosp, 'ko');
+    });
+  }
+
   // 평균 · 본원 차액 (차액 = 본원 − 평균, 평균은 반올림 전 값으로 계산)
   const avgRow  = cols.map(c => c.avg);
   const my      = hosps.find(r => r.isMy);
@@ -1810,6 +1853,7 @@ function buildReportModel(keys) {
 
   return {
     cols, groups, hosps, avgRow, diffRow, hospPx: rpW.hosp,
+    sortKey: sk >= 0 ? rpSort.key : null, sortDir: rpSort.dir, showStar: rpShowStar,
     nHosp: hosps.filter(r => r.cells.some(Boolean)).length,
     hasMy: !!(my && my.cells.some(Boolean)),
     hasMulti: hosps.some(r => r.cells.some(s => s && s.count > 1)),
@@ -1843,17 +1887,21 @@ function buildReportHTML(keys) {
     '<th colspan="' + (g.span * 2) + '" class="rp-grp" title="' + escH(g.name) + '" style="background:' + RP_GROUP_COLORS[i % RP_GROUP_COLORS.length] + '">' + escH(g.name) + '</th>'
   ).join('');
 
-  const subHead = m.cols.map(c =>
-    '<th class="rp-sub" title="' + escH(c.name) + ' (' + escH(c.edi) + ')">' + escH(c.label) + '</th>' +
-    '<th class="rp-sub rp-sub-rank">순위<span class="rp-rz" data-k="' + escH(c.key) + '" title="드래그해서 이 열 너비 조정"></span></th>'
-  ).join('');
+  const sortTip = '클릭: 순위순 정렬 (1위부터 → 마지막부터 → 해제)';
+  const subHead = m.cols.map(c => {
+    const on = m.sortKey === c.key;
+    const cls = ' rp-sortable' + (on ? ' rp-sorted' : '');
+    const arrow = on ? (m.sortDir === 'desc' ? '▼' : '▲') : '';
+    return '<th class="rp-sub' + cls + '" data-sk="' + escH(c.key) + '" title="' + escH(c.name) + ' (' + escH(c.edi) + ')&#10;' + sortTip + '">' + escH(c.label) + '</th>' +
+           '<th class="rp-sub rp-sub-rank' + cls + '" data-sk="' + escH(c.key) + '" title="' + sortTip + '">순위' + arrow + '<span class="rp-rz" data-k="' + escH(c.key) + '" title="드래그해서 이 열 너비 조정"></span></th>';
+  }).join('');
 
   const body = m.hosps.map(r => {
     const tds = r.cells.map(s => {
       if (!s) return '<td class="rp-val rp-na">-</td><td class="rp-rank rp-na">-</td>';
       const multi = s.count > 1;
       const tip = multi ? ' title="동일 코드 ' + s.count + '건 등록 (' + rpFmt(s.min) + '~' + rpFmt(s.max) + '원)"' : '';
-      return '<td class="rp-val"' + tip + '>' + rpFmt(s.value) + (multi ? '<sup class="rp-star">*</sup>' : '') + '</td>' +
+      return '<td class="rp-val"' + tip + '>' + rpFmt(s.value) + (multi && m.showStar ? '<sup class="rp-star">*</sup>' : '') + '</td>' +
              '<td class="rp-rank">' + s.rank + '</td>';
     }).join('');
     return '<tr class="' + (r.isMy ? 'rp-my' : 'rp-r') + '"><td class="rp-hosp">' + escH(r.hosp) + (r.isMy ? ' ★' : '') + '</td>' + tds + '</tr>';
@@ -1868,10 +1916,16 @@ function buildReportHTML(keys) {
     '순위는 금액이 높은 병원이 1위이며, 동일 금액은 같은 순위입니다.',
     '평균·차액은 위 표에 표시된 비교 병원(' + m.nHosp + '개) 기준이며, 차액은 본원 금액에서 평균을 뺀 값입니다. ( )는 본원이 평균보다 낮음을 의미합니다.',
     '금액은 ' + m.mode + ' 기준입니다.' + (m.hasMulti
-      ? ' <b>*</b> 표시는 동일 코드에 복수 금액이 등록된 병원으로, 세부 항목은 <a href="' + RP_HIRA_URL.replace(/&/g, '&amp;') + '" target="_blank">심평원 비급여 진료비용 정보</a>에서 확인이 필요합니다.'
+      ? (m.showStar ? ' <b>*</b> 표시는 동일 코드에 복수 금액이 등록된 병원으로, 세부 항목은 ' : ' 동일 코드에 복수 금액이 등록된 병원이 있으며, 세부 항목은 ')
+        + '<a href="' + RP_HIRA_URL.replace(/&/g, '&amp;') + '" target="_blank">심평원 비급여 진료비용 정보</a>에서 확인이 필요합니다.'
       : ''),
     m.hasMy ? '' : '⚠ 본원(' + escH(MY_HOSP) + ') 데이터가 선택한 항목에 없어 차액을 계산하지 못했습니다.',
   ].filter(Boolean).map(t => '<div>· ' + t + '</div>').join('');
+
+  const sc = m.sortKey ? m.cols.find(c => c.key === m.sortKey) : null;
+  const sortChip = sc
+    ? '<span class="rp-sortchip">정렬: ' + escH(sc.label) + ' ' + (m.sortDir === 'desc' ? '▼ 마지막 순위부터' : '▲ 1위부터') + '<button onclick="rpClearSort()">✕ 해제</button></span>'
+    : '';
 
   return '<div class="rp-root">' +
   '<div class="rp-bar">' +
@@ -1879,7 +1933,9 @@ function buildReportHTML(keys) {
     '<span class="rp-ctl">항목 열 너비 <input type="range" id="rpValRange" min="70" max="240" step="2" value="' + rpW.val + '" oninput="rpSetWidth(\'val\',this.value)"><b id="rpValLbl">' + rpW.val + 'px</b></span>' +
     '<span class="rp-ctl">병원명 열 <input type="range" id="rpHospRange" min="100" max="300" step="2" value="' + rpW.hosp + '" oninput="rpSetWidth(\'hosp\',this.value)"><b id="rpHospLbl">' + rpW.hosp + 'px</b></span>' +
     '<button class="rp-reset" onclick="rpResetWidth()">↺ 기본값</button>' +
-    '<span class="rp-tip">슬라이더는 모든 항목 열을 같은 폭으로 맞추고, 머리글 경계선을 드래그하면 열 하나만 조정됩니다. 엑셀에도 같은 너비가 적용됩니다.</span>' +
+    '<label class="rp-chk"><input type="checkbox" id="rpStarChk" ' + (m.showStar ? 'checked' : '') + ' onchange="rpToggleStar(this.checked)"> 복수금액 * 표시</label>' +
+    sortChip +
+    '<span class="rp-tip">슬라이더는 모든 항목 열을 같은 폭으로 맞추고, 머리글 경계선을 드래그하면 열 하나만 조정됩니다. 항목 머리글(금액·순위)을 클릭하면 그 항목의 순위순으로 정렬됩니다. 엑셀에도 같은 너비·정렬이 적용됩니다.</span>' +
   '</div>' +
   '<div class="rp-sheet">' +
     '<div class="rp-title">상급종합병원 비급여 현황</div>' +
@@ -1920,7 +1976,8 @@ function buildReportWorkbook(m, EJ) {
   ws.getRow(1).height = 36;
 
   // 2행 기준/단위
-  ws.getCell(2, 1).value = '기준: ' + m.mode + (m.updated ? ' · 수집 ' + m.updated : '') + ' · 비교 병원 ' + m.nHosp + '개';
+  ws.getCell(2, 1).value = '기준: ' + m.mode + (m.updated ? ' · 수집 ' + m.updated : '') + ' · 비교 병원 ' + m.nHosp + '개'
+    + (m.sortKey ? ' · 정렬: ' + (m.cols.find(c => c.key === m.sortKey) || {}).label + (m.sortDir === 'desc' ? ' 마지막 순위부터' : ' 1위부터') : '');
   ws.getCell(2, 1).font = { name: '맑은 고딕', size: 9, color: { argb: 'FF64748B' } };
   const unitCell = ws.getCell(2, nCols);
   unitCell.value = '(단위 : 원)';
@@ -1975,7 +2032,7 @@ function buildReportWorkbook(m, EJ) {
       if (s) {
         vc.value = s.value; vc.numFmt = '#,##0';
         rc.value = s.rank;
-        if (s.count > 1) vc.note = '동일 코드 ' + s.count + '건 등록 (' + s.min.toLocaleString('ko-KR') + '~' + s.max.toLocaleString('ko-KR') + '원)';
+        if (m.showStar && s.count > 1) vc.note = '동일 코드 ' + s.count + '건 등록 (' + s.min.toLocaleString('ko-KR') + '~' + s.max.toLocaleString('ko-KR') + '원)';
       } else {
         vc.value = '-'; rc.value = '-';
       }
@@ -2020,7 +2077,7 @@ function buildReportWorkbook(m, EJ) {
   const notes = [
     '※ 순위는 금액이 높은 병원이 1위이며, 동일 금액은 같은 순위입니다.',
     '※ 평균·차액은 표에 포함된 비교 병원(' + m.nHosp + '개) 기준이며, 차액은 본원 금액에서 평균을 뺀 값입니다. ( )는 본원이 평균보다 낮음을 의미합니다.',
-    '※ 금액은 ' + m.mode + ' 기준입니다.' + (m.hasMulti ? ' 메모(빨간 삼각형)가 있는 셀은 동일 코드에 복수 금액이 등록된 경우이며, 세부 항목은 심평원 비급여 진료비용 정보에서 확인이 필요합니다.' : ''),
+    '※ 금액은 ' + m.mode + ' 기준입니다.' + (m.hasMulti ? (m.showStar ? ' 메모(빨간 삼각형)가 있는 셀은 동일 코드에 복수 금액이 등록된 경우이며, 세부 항목은 심평원 비급여 진료비용 정보에서 확인이 필요합니다.' : ' 동일 코드에 복수 금액이 등록된 병원이 있으며, 세부 항목은 심평원 비급여 진료비용 정보에서 확인이 필요합니다.') : ''),
   ];
   notes.forEach(txt => {
     ws.mergeCells(row, 1, row, nCols);
