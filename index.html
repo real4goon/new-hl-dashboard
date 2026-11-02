@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.8</title>
+<title>비급여 비교 대시보드 V6.9</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -256,33 +256,49 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .footer strong{color:var(--navy);}
 
 
-/* ── 보고용 비교표 탭 ── */
-.rp-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--light);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+/* ── 보고용 비교표 탭 ──
+   ※ 결과 영역의 .empty(회색·가운데 정렬)와 히트맵 표의 전역 th/td 규칙이 새지 않도록
+      모든 규칙을 .rp-table 아래로 격리하고 색상을 명시한다. */
+.rp-root{color:#1E293B;text-align:left;font-size:13px;}
+.rp-bar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;}
 .rp-btn{padding:7px 16px;border:none;border-radius:8px;background:#1a7a4a;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
 .rp-btn:hover{opacity:.9;}
-.rp-hint{font-size:11.5px;color:var(--muted);}
-.rp-paper{padding:16px 18px 20px;}
-.rp-title{text-align:center;font-size:20px;font-weight:800;color:var(--navy);margin-bottom:6px;}
-.rp-meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:6px;}
-.rp-scroll{overflow:auto;max-height:calc(100vh - 330px);border:1px solid #BFBFBF;}
-.rp-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%;}
-.rp-table th,.rp-table td{border-right:1px solid #D9D9D9;border-bottom:1px solid #D9D9D9;padding:5px 8px;white-space:nowrap;}
-.rp-corner{background:#595959;position:sticky;top:0;left:0;z-index:4;}
-.rp-grp{text-align:center;font-size:13px;font-weight:800;color:#1E293B;position:sticky;top:0;z-index:2;height:28px;box-sizing:border-box;}
-.rp-hosp-h{background:#2F5597;color:#fff;font-weight:700;text-align:center;position:sticky;top:28px;left:0;z-index:4;}
-.rp-sub{background:#2F5597;color:#fff;font-weight:700;text-align:center;position:sticky;top:28px;z-index:2;white-space:normal;min-width:84px;max-width:130px;line-height:1.3;}
-.rp-sub-rank{min-width:38px;width:38px;}
-.rp-hosp{text-align:center;font-weight:600;background:#fff;position:sticky;left:0;z-index:1;}
-.rp-val{text-align:right;font-variant-numeric:tabular-nums;}
-.rp-rank{text-align:center;color:#475569;}
-.rp-na{color:#CBD5E1;text-align:center;}
-.rp-star{color:var(--pink);font-weight:800;margin-left:1px;}
-.rp-my td{background:#FFC000!important;font-weight:800;}
-.rp-avg td,.rp-diff td{background:#DCE6F1!important;font-weight:800;}
+.rp-ctl{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#475569;font-weight:600;}
+.rp-ctl input[type=range]{width:110px;accent-color:#2E86C1;cursor:pointer;}
+.rp-ctl b{display:inline-block;min-width:42px;color:#1E293B;font-variant-numeric:tabular-nums;}
+.rp-reset{padding:5px 11px;border:1.5px solid #CBD5E1;border-radius:7px;background:#fff;color:#475569;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.rp-reset:hover{border-color:#2E86C1;color:#2E86C1;}
+.rp-tip{flex-basis:100%;font-size:11px;color:#64748B;}
+.rp-sheet{width:fit-content;min-width:min(100%,620px);max-width:100%;margin:0 auto;padding:18px 18px 24px;box-sizing:border-box;}
+.rp-title{text-align:center;font-size:20px;font-weight:800;color:#0F2744;margin-bottom:8px;}
+.rp-meta{display:flex;justify-content:space-between;gap:16px;font-size:11.5px;color:#64748B;margin-bottom:6px;}
+.rp-scroll{overflow:auto;max-height:calc(100vh - 400px);}
+.rp-table{table-layout:fixed;border-collapse:separate;border-spacing:0;width:auto;margin:0 auto;font-size:12.5px;border-top:1px solid #B8C2CF;border-left:1px solid #B8C2CF;}
+.rp-table th,.rp-table td{box-sizing:border-box;border-right:1px solid #B8C2CF;border-bottom:1px solid #B8C2CF;padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:none;filter:none;}
+.rp-table thead th{position:sticky;z-index:3;text-align:center;font-weight:700;}
+.rp-table th.rp-corner{top:0;left:0;z-index:6;background:#595959;}
+.rp-table th.rp-grp{top:0;height:30px;color:#1E293B;font-size:13px;font-weight:800;}
+.rp-table th.rp-hosp-h{top:30px;left:0;z-index:6;background:#2F5597;color:#fff;font-size:12px;overflow:visible;}
+.rp-table th.rp-sub{top:30px;background:#2F5597;color:#fff;font-size:12px;white-space:normal;line-height:1.3;}
+.rp-table th.rp-sub-rank{padding-left:2px;padding-right:2px;overflow:visible;}
+.rp-table td{text-align:center;color:#1E293B;background:#fff;cursor:default;}
+.rp-table td.rp-hosp{position:sticky;left:0;z-index:2;text-align:left;font-weight:700;font-size:12.5px;background:#F4F7FB;padding-left:12px;line-height:1.4;border-right:2px solid #8A97A8;}
+.rp-table td.rp-val{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;padding-right:12px;}
+.rp-table td.rp-rank{text-align:center;font-weight:700;color:#475569;}
+.rp-table td.rp-na{text-align:center;font-weight:400;color:#A0AEC0;}
+.rp-table tbody tr.rp-r:hover td{background:#EEF4FC;}
+.rp-table tbody tr.rp-r:hover td.rp-hosp{background:#E1EBF8;}
+.rp-table tbody tr.rp-my td{background:#FFC000;color:#1E293B;font-weight:800;}
+.rp-table tbody tr.rp-avg td,.rp-table tbody tr.rp-diff td{background:#DCE6F1;color:#1E293B;font-weight:800;}
+.rp-table tbody tr.rp-avg td.rp-hosp,.rp-table tbody tr.rp-diff td.rp-hosp{white-space:normal;}
+.rp-star{color:#E8445A;font-weight:800;margin-left:1px;}
 .rp-neg{color:#D92D20;}
 .rp-pos{color:#1D4ED8;}
-.rp-note{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8;}
-.rp-note a{color:var(--blue);font-weight:700;}
+.rp-rz{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:8;}
+.rp-rz::after{content:'';position:absolute;left:4px;top:25%;height:50%;width:2px;border-radius:1px;background:rgba(255,255,255,.4);}
+.rp-rz:hover::after{background:#fff;}
+.rp-note{margin-top:10px;font-size:11px;color:#64748B;line-height:1.8;text-align:left;}
+.rp-note a{color:#2E86C1;font-weight:700;}
 
 /* ── 전체 목록 탭 ── */
 .fl-ctrl {
@@ -528,7 +544,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.8</p>
+      <p>서울·경기 상급종합병원 V6.9</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1172,6 +1188,8 @@ function renderTableWithNames(keys) {
   if (currentTab==='report') {
     html += buildReportHTML(keys);
     getResultArea().innerHTML = html;
+    rpApplyWidths();
+    rpBindResize();
     return;
   }
 
@@ -1641,6 +1659,73 @@ function flToggleAll(cb) {
 const RP_GROUP_COLORS = ['#F8CBAD','#E2EFDA','#DDEBF7','#FFF2CC','#E4DFEC','#FCE4D6'];
 const RP_HIRA_URL = 'https://www.hira.or.kr/npay/index.do?pgmid=HIRAA030009000000&WT.gnb=%EB%B9%84%EA%B8%89%EC%97%AC%EC%A7%84%EB%A3%8C%EB%B9%84%EC%A0%95%EB%B3%B4#app%2Frb%2FnpayDamtInfoList';
 
+
+/* ── 열 너비 설정 (브라우저에 저장) ── */
+const RP_DEF = { val: 112, hosp: 160, rank: 44 };
+function rpLoadW() {
+  try {
+    const o = JSON.parse(localStorage.getItem('rp_widths') || 'null');
+    if (o && o.val && o.hosp) return { val: +o.val, hosp: +o.hosp, cols: o.cols || {} };
+  } catch (e) {}
+  return { val: RP_DEF.val, hosp: RP_DEF.hosp, cols: {} };
+}
+let rpW = rpLoadW();
+function rpSaveW() { try { localStorage.setItem('rp_widths', JSON.stringify(rpW)); } catch (e) {} }
+function rpColPx(key) { return rpW.cols[key] || rpW.val; }
+
+// 현재 화면의 표에 너비 반영 (colgroup + 표 전체 폭 + 슬라이더 표시)
+function rpApplyWidths() {
+  const t = document.querySelector('.rp-table');
+  if (!t) return;
+  let total = 0;
+  t.querySelectorAll('colgroup col').forEach(c => {
+    const k = c.dataset.k;
+    const px = k === 'hosp' ? rpW.hosp : k === '__rank' ? RP_DEF.rank : rpColPx(k);
+    c.style.width = px + 'px';
+    total += px;
+  });
+  t.style.width = total + 'px';
+  const set = (id, v, txt) => { const el = document.getElementById(id); if (el) { if (v != null) el.value = v; if (txt != null) el.textContent = txt; } };
+  set('rpValRange', rpW.val); set('rpValLbl', null, rpW.val + 'px');
+  set('rpHospRange', rpW.hosp); set('rpHospLbl', null, rpW.hosp + 'px');
+}
+// 슬라이더: '열 너비'는 모든 항목 열을 같은 폭으로 맞춤(개별 조정값 초기화)
+function rpSetWidth(which, v) {
+  v = Number(v);
+  if (which === 'val') { rpW.val = v; rpW.cols = {}; } else { rpW.hosp = v; }
+  rpSaveW(); rpApplyWidths();
+}
+function rpResetWidth() {
+  rpW = { val: RP_DEF.val, hosp: RP_DEF.hosp, cols: {} };
+  rpSaveW(); rpApplyWidths();
+}
+// 머리글 경계선 드래그로 열 하나만 조정
+function rpBindResize() {
+  document.querySelectorAll('.rp-rz').forEach(h => {
+    h.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const k = h.dataset.k;
+      const startX = e.clientX;
+      const startW = k === 'hosp' ? rpW.hosp : rpColPx(k);
+      const move = ev => {
+        const w = Math.max(60, Math.min(420, Math.round(startW + ev.clientX - startX)));
+        if (k === 'hosp') rpW.hosp = w; else rpW.cols[k] = w;
+        rpApplyWidths();
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.body.style.userSelect = '';
+        rpSaveW();
+      };
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+  });
+}
+function rpPxToChar(px) { return Math.max(6, Math.round((px - 5) / 7 * 10) / 10); }
+
 function rpModeLabel() {
   return chartGridMode==='min' ? '최솟값' : chartGridMode==='max' ? '최댓값' : '평균값';
 }
@@ -1659,7 +1744,7 @@ function buildReportModel(keys) {
     const group = segs.length > 1 ? segs[0] : '기타';
     let label = segs.length > 1 ? segs.slice(1).join(' / ') : (segs[0] || name);
     if (unit) label += ' [' + unit + ']';
-    return { key, name, edi, unit, group, label };
+    return { key, name, edi, unit, group, label, px: rpColPx(key) };
   });
 
   // 같은 분류(첫 번째 '/' 앞)끼리 붙이기 — 분류 순서는 선택 순서 기준
@@ -1724,7 +1809,7 @@ function buildReportModel(keys) {
     .filter(Boolean).map(s => String(s).slice(0, 10)).sort();
 
   return {
-    cols, groups, hosps, avgRow, diffRow,
+    cols, groups, hosps, avgRow, diffRow, hospPx: rpW.hosp,
     nHosp: hosps.filter(r => r.cells.some(Boolean)).length,
     hasMy: !!(my && my.cells.some(Boolean)),
     hasMulti: hosps.some(r => r.cells.some(s => s && s.count > 1)),
@@ -1749,13 +1834,18 @@ function buildReportHTML(keys) {
     return '<div class="empty"><div class="empty-text">비교할 데이터가 없습니다.</div></div>';
   }
 
+  const colgroup = '<colgroup><col data-k="hosp" style="width:' + m.hospPx + 'px">' +
+    m.cols.map(c => '<col data-k="' + escH(c.key) + '" style="width:' + c.px + 'px"><col data-k="__rank" style="width:' + RP_DEF.rank + 'px">').join('') +
+    '</colgroup>';
+  const totalPx = m.hospPx + m.cols.reduce((a, c) => a + c.px + RP_DEF.rank, 0);
+
   const groupHead = m.groups.map((g, i) =>
-    '<th colspan="' + (g.span * 2) + '" class="rp-grp" style="background:' + RP_GROUP_COLORS[i % RP_GROUP_COLORS.length] + '">' + escH(g.name) + '</th>'
+    '<th colspan="' + (g.span * 2) + '" class="rp-grp" title="' + escH(g.name) + '" style="background:' + RP_GROUP_COLORS[i % RP_GROUP_COLORS.length] + '">' + escH(g.name) + '</th>'
   ).join('');
 
   const subHead = m.cols.map(c =>
     '<th class="rp-sub" title="' + escH(c.name) + ' (' + escH(c.edi) + ')">' + escH(c.label) + '</th>' +
-    '<th class="rp-sub rp-sub-rank">순위</th>'
+    '<th class="rp-sub rp-sub-rank">순위<span class="rp-rz" data-k="' + escH(c.key) + '" title="드래그해서 이 열 너비 조정"></span></th>'
   ).join('');
 
   const body = m.hosps.map(r => {
@@ -1766,7 +1856,7 @@ function buildReportHTML(keys) {
       return '<td class="rp-val"' + tip + '>' + rpFmt(s.value) + (multi ? '<sup class="rp-star">*</sup>' : '') + '</td>' +
              '<td class="rp-rank">' + s.rank + '</td>';
     }).join('');
-    return '<tr class="' + (r.isMy ? 'rp-my' : '') + '"><td class="rp-hosp">' + escH(r.hosp) + (r.isMy ? ' ★' : '') + '</td>' + tds + '</tr>';
+    return '<tr class="' + (r.isMy ? 'rp-my' : 'rp-r') + '"><td class="rp-hosp">' + escH(r.hosp) + (r.isMy ? ' ★' : '') + '</td>' + tds + '</tr>';
   }).join('');
 
   const avgTds  = m.avgRow.map(v =>
@@ -1783,23 +1873,26 @@ function buildReportHTML(keys) {
     m.hasMy ? '' : '⚠ 본원(' + escH(MY_HOSP) + ') 데이터가 선택한 항목에 없어 차액을 계산하지 못했습니다.',
   ].filter(Boolean).map(t => '<div>· ' + t + '</div>').join('');
 
-  return '' +
+  return '<div class="rp-root">' +
   '<div class="rp-bar">' +
     '<button class="rp-btn" onclick="exportReportExcel()">📥 보고용 표 엑셀 저장</button>' +
-    '<span class="rp-hint">위 <b>기준값</b> 버튼(최솟값/평균값/최댓값)에 따라 금액과 순위가 바뀝니다.</span>' +
+    '<span class="rp-ctl">항목 열 너비 <input type="range" id="rpValRange" min="70" max="240" step="2" value="' + rpW.val + '" oninput="rpSetWidth(\'val\',this.value)"><b id="rpValLbl">' + rpW.val + 'px</b></span>' +
+    '<span class="rp-ctl">병원명 열 <input type="range" id="rpHospRange" min="100" max="300" step="2" value="' + rpW.hosp + '" oninput="rpSetWidth(\'hosp\',this.value)"><b id="rpHospLbl">' + rpW.hosp + 'px</b></span>' +
+    '<button class="rp-reset" onclick="rpResetWidth()">↺ 기본값</button>' +
+    '<span class="rp-tip">슬라이더는 모든 항목 열을 같은 폭으로 맞추고, 머리글 경계선을 드래그하면 열 하나만 조정됩니다. 엑셀에도 같은 너비가 적용됩니다.</span>' +
   '</div>' +
-  '<div class="rp-paper">' +
+  '<div class="rp-sheet">' +
     '<div class="rp-title">상급종합병원 비급여 현황</div>' +
     '<div class="rp-meta"><span>기준: ' + m.mode + (m.updated ? ' · 수집 ' + m.updated : '') + ' · 비교 병원 ' + m.nHosp + '개</span><span>(단위 : 원)</span></div>' +
-    '<div class="rp-scroll"><table class="rp-table">' +
+    '<div class="rp-scroll"><table class="rp-table" style="width:' + totalPx + 'px">' + colgroup +
       '<thead><tr><th class="rp-corner"></th>' + groupHead + '</tr>' +
-      '<tr><th class="rp-hosp-h">병원명</th>' + subHead + '</tr></thead>' +
+      '<tr><th class="rp-hosp-h">병원명<span class="rp-rz" data-k="hosp" title="드래그해서 병원명 열 너비 조정"></span></th>' + subHead + '</tr></thead>' +
       '<tbody>' + body +
         '<tr class="rp-avg"><td class="rp-hosp">비교 병원 평균</td>' + avgTds + '</tr>' +
         '<tr class="rp-diff"><td class="rp-hosp">(본원 비급여금액과 차액)</td>' + diffTds + '</tr>' +
       '</tbody></table></div>' +
     '<div class="rp-note">' + notes + '</div>' +
-  '</div>';
+  '</div></div>';
 }
 
 // 엑셀 워크북 생성 (ExcelJS)
@@ -1939,10 +2032,10 @@ function buildReportWorkbook(m, EJ) {
   });
 
   // 열 너비
-  ws.getColumn(1).width = 24;
+  ws.getColumn(1).width = rpPxToChar(m.hospPx || RP_DEF.hosp);
   for (let i = 0; i < m.cols.length; i++) {
-    ws.getColumn(2 + i * 2).width = 13;
-    ws.getColumn(3 + i * 2).width = 6;
+    ws.getColumn(2 + i * 2).width = rpPxToChar(m.cols[i].px || RP_DEF.val);
+    ws.getColumn(3 + i * 2).width = rpPxToChar(RP_DEF.rank);
   }
   return wb;
 }
