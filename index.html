@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V6.7</title>
+<title>비급여 비교 대시보드 V6.8</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════════════════
@@ -255,6 +256,34 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .footer strong{color:var(--navy);}
 
 
+/* ── 보고용 비교표 탭 ── */
+.rp-bar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--light);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.rp-btn{padding:7px 16px;border:none;border-radius:8px;background:#1a7a4a;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.rp-btn:hover{opacity:.9;}
+.rp-hint{font-size:11.5px;color:var(--muted);}
+.rp-paper{padding:16px 18px 20px;}
+.rp-title{text-align:center;font-size:20px;font-weight:800;color:var(--navy);margin-bottom:6px;}
+.rp-meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:6px;}
+.rp-scroll{overflow:auto;max-height:calc(100vh - 330px);border:1px solid #BFBFBF;}
+.rp-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%;}
+.rp-table th,.rp-table td{border-right:1px solid #D9D9D9;border-bottom:1px solid #D9D9D9;padding:5px 8px;white-space:nowrap;}
+.rp-corner{background:#595959;position:sticky;top:0;left:0;z-index:4;}
+.rp-grp{text-align:center;font-size:13px;font-weight:800;color:#1E293B;position:sticky;top:0;z-index:2;height:28px;box-sizing:border-box;}
+.rp-hosp-h{background:#2F5597;color:#fff;font-weight:700;text-align:center;position:sticky;top:28px;left:0;z-index:4;}
+.rp-sub{background:#2F5597;color:#fff;font-weight:700;text-align:center;position:sticky;top:28px;z-index:2;white-space:normal;min-width:84px;max-width:130px;line-height:1.3;}
+.rp-sub-rank{min-width:38px;width:38px;}
+.rp-hosp{text-align:center;font-weight:600;background:#fff;position:sticky;left:0;z-index:1;}
+.rp-val{text-align:right;font-variant-numeric:tabular-nums;}
+.rp-rank{text-align:center;color:#475569;}
+.rp-na{color:#CBD5E1;text-align:center;}
+.rp-star{color:var(--pink);font-weight:800;margin-left:1px;}
+.rp-my td{background:#FFC000!important;font-weight:800;}
+.rp-avg td,.rp-diff td{background:#DCE6F1!important;font-weight:800;}
+.rp-neg{color:#D92D20;}
+.rp-pos{color:#1D4ED8;}
+.rp-note{margin-top:10px;font-size:11px;color:var(--muted);line-height:1.8;}
+.rp-note a{color:var(--blue);font-weight:700;}
+
 /* ── 전체 목록 탭 ── */
 .fl-ctrl {
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
@@ -499,7 +528,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>서울·경기 상급종합병원 V6.7</p>
+      <p>서울·경기 상급종합병원 V6.8</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -619,7 +648,7 @@ let activeCharts  = {};          // key: canvasId → Chart
 let selectedHosps = [];
 let failedHosps   = [];   // 로드 실패 병원 목록
 let currentLayout = 'sidebar';   // 'sidebar' | 'top'
-let currentTab    = 'table';     // 'table' | 'chart' | 'bubble'
+let currentTab    = 'table';     // 'table' | 'chart' | 'report' | 'list'
 let chartGridMode = 'avg';        // 'min' | 'avg' | 'max'
 
 /* ══════════════════════════════════════════════
@@ -883,6 +912,7 @@ async function loadSelectedData() {
   <div class="tab-row">
     <button class="tab-btn" onclick="switchTab('table')">📋 히트맵 테이블</button>
     <button class="tab-btn" onclick="switchTab('chart')">📊 항목별 차트</button>
+    <button class="tab-btn" onclick="switchTab('report')">📑 보고용 비교표</button>
     <button class="tab-btn active" onclick="switchTab('list')">🗂 전체 목록</button>
   </div>
   <div style="padding:40px 24px;text-align:center;color:var(--muted);">
@@ -1110,7 +1140,7 @@ function renderTableWithNames(keys) {
   const maxP = allPrices.length ? Math.max(...allPrices) : 0;
   const avgP = allPrices.length ? Math.round(allPrices.reduce((a,b)=>a+b,0)/allPrices.length) : 0;
 
-  const chartModeBar = currentTab==='chart'
+  const chartModeBar = (currentTab==='chart' || currentTab==='report')
     ? '<div class="chart-mode-bar">' +
       '<span>기준값:</span>' +
       '<button class="cmode-btn ' + (chartGridMode==='min'?'active':'') + '" onclick="setChartGridMode(\'min\')">최솟값</button>' +
@@ -1134,9 +1164,16 @@ function renderTableWithNames(keys) {
   <div class="tab-row">
     <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
     <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
+    <button class="tab-btn ${currentTab==='report'?'active':''}" onclick="switchTab('report')">📑 보고용 비교표</button>
     <button class="tab-btn ${currentTab==='list'?'active':''}" onclick="switchTab('list')">🗂 전체 목록</button>
   </div>
   ${chartModeBar}`;
+
+  if (currentTab==='report') {
+    html += buildReportHTML(keys);
+    getResultArea().innerHTML = html;
+    return;
+  }
 
   if (currentTab==='list') {
     html += buildFullListHTML();
@@ -1596,6 +1633,338 @@ function flToggleAll(cb) {
 }
 
 
+/* ══════════════════════════════════════════════
+   보고용 비교표 (보직자 보고 · 엑셀 저장)
+   - 행=병원, 열=항목(금액+순위), 하단=평균/본원 차액
+   - 순위: 금액이 높은 병원 = 1위 (동일 금액은 같은 순위)
+══════════════════════════════════════════════ */
+const RP_GROUP_COLORS = ['#F8CBAD','#E2EFDA','#DDEBF7','#FFF2CC','#E4DFEC','#FCE4D6'];
+const RP_HIRA_URL = 'https://www.hira.or.kr/npay/index.do?pgmid=HIRAA030009000000&WT.gnb=%EB%B9%84%EA%B8%89%EC%97%AC%EC%A7%84%EB%A3%8C%EB%B9%84%EC%A0%95%EB%B3%B4#app%2Frb%2FnpayDamtInfoList';
+
+function rpModeLabel() {
+  return chartGridMode==='min' ? '최솟값' : chartGridMode==='max' ? '최댓값' : '평균값';
+}
+function rpPick(s) {
+  if (chartGridMode==='min') return s.min;
+  if (chartGridMode==='max') return s.max;
+  return Math.round(s.avg);
+}
+
+// 표 데이터 모델 생성 (화면·엑셀 공용)
+function buildReportModel(keys) {
+  let cols = keys.map(key => {
+    const p = key.split('|||');
+    const name = p[0], edi = p[1] || '', unit = normalizeUnit(p[2]);
+    const segs = name.split('/').map(s => s.trim()).filter(Boolean);
+    const group = segs.length > 1 ? segs[0] : '기타';
+    let label = segs.length > 1 ? segs.slice(1).join(' / ') : (segs[0] || name);
+    if (unit) label += ' [' + unit + ']';
+    return { key, name, edi, unit, group, label };
+  });
+
+  // 같은 분류(첫 번째 '/' 앞)끼리 붙이기 — 분류 순서는 선택 순서 기준
+  const order = [];
+  cols.forEach(c => { if (!order.includes(c.group)) order.push(c.group); });
+  cols = order.flatMap(g => cols.filter(c => c.group === g));
+
+  // 항목별 · 병원별 금액
+  cols.forEach(c => {
+    const pricesByHosp = new Map();
+    loadedData.forEach(d => {
+      if (d.itemName !== c.name || d.ediCode !== c.edi) return;
+      if (normalizeUnit(d.unit) !== c.unit) return;
+      const price = Number(d.price);
+      if (!(price > 0)) return;
+      if (!pricesByHosp.has(d.hospName)) pricesByHosp.set(d.hospName, []);
+      pricesByHosp.get(d.hospName).push(price);
+    });
+
+    c.stats = new Map();
+    pricesByHosp.forEach((arr, h) => {
+      const s = {
+        min: Math.min(...arr),
+        max: Math.max(...arr),
+        avg: arr.reduce((a, b) => a + b, 0) / arr.length,
+        count: arr.length,
+      };
+      s.value = rpPick(s);
+      c.stats.set(h, s);
+    });
+
+    // 순위: 높은 금액 = 1위, 동일 금액은 같은 순위 (1,2,2,4 방식)
+    const vals = [...c.stats.values()].map(s => s.value);
+    c.stats.forEach(s => { s.rank = 1 + vals.filter(v => v > s.value).length; });
+    c.n   = vals.length;
+    c.avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  });
+
+  // 병원 행 (가나다순, 본원은 데이터가 없어도 표시)
+  const hospNames = [...selectedHosps]
+    .filter(h => h === MY_HOSP || cols.some(c => c.stats.has(h)))
+    .sort((a, b) => a.localeCompare(b, 'ko'));
+
+  const hosps = hospNames.map(h => ({
+    hosp: h,
+    isMy: h === MY_HOSP,
+    cells: cols.map(c => c.stats.get(h) || null),
+  }));
+
+  // 평균 · 본원 차액 (차액 = 본원 − 평균, 평균은 반올림 전 값으로 계산)
+  const avgRow  = cols.map(c => c.avg);
+  const my      = hosps.find(r => r.isMy);
+  const diffRow = cols.map((c, i) => {
+    const cell = my && my.cells[i];
+    return (cell && c.avg != null) ? Math.round(cell.value - c.avg) : null;
+  });
+
+  const groups = order.map(g => ({ name: g, span: cols.filter(c => c.group === g).length }));
+
+  const dates = selectedHosps
+    .map(h => (typeof metadata !== 'undefined' && metadata[h]) ? metadata[h].updated : null)
+    .filter(Boolean).map(s => String(s).slice(0, 10)).sort();
+
+  return {
+    cols, groups, hosps, avgRow, diffRow,
+    nHosp: hosps.filter(r => r.cells.some(Boolean)).length,
+    hasMy: !!(my && my.cells.some(Boolean)),
+    hasMulti: hosps.some(r => r.cells.some(s => s && s.count > 1)),
+    mode: rpModeLabel(),
+    updated: dates.length ? dates[dates.length - 1] : '',
+  };
+}
+
+function rpFmt(n) { return Number(n).toLocaleString('ko-KR'); }
+
+function rpDiffHTML(v) {
+  if (v == null) return '-';
+  if (v < 0) return '<span class="rp-neg">(' + rpFmt(-v) + ')</span>';
+  if (v > 0) return '<span class="rp-pos">' + rpFmt(v) + '</span>';
+  return '0';
+}
+
+// 화면용 HTML
+function buildReportHTML(keys) {
+  const m = buildReportModel(keys);
+  if (!m.cols.length || !m.hosps.length) {
+    return '<div class="empty"><div class="empty-text">비교할 데이터가 없습니다.</div></div>';
+  }
+
+  const groupHead = m.groups.map((g, i) =>
+    '<th colspan="' + (g.span * 2) + '" class="rp-grp" style="background:' + RP_GROUP_COLORS[i % RP_GROUP_COLORS.length] + '">' + escH(g.name) + '</th>'
+  ).join('');
+
+  const subHead = m.cols.map(c =>
+    '<th class="rp-sub" title="' + escH(c.name) + ' (' + escH(c.edi) + ')">' + escH(c.label) + '</th>' +
+    '<th class="rp-sub rp-sub-rank">순위</th>'
+  ).join('');
+
+  const body = m.hosps.map(r => {
+    const tds = r.cells.map(s => {
+      if (!s) return '<td class="rp-val rp-na">-</td><td class="rp-rank rp-na">-</td>';
+      const multi = s.count > 1;
+      const tip = multi ? ' title="동일 코드 ' + s.count + '건 등록 (' + rpFmt(s.min) + '~' + rpFmt(s.max) + '원)"' : '';
+      return '<td class="rp-val"' + tip + '>' + rpFmt(s.value) + (multi ? '<sup class="rp-star">*</sup>' : '') + '</td>' +
+             '<td class="rp-rank">' + s.rank + '</td>';
+    }).join('');
+    return '<tr class="' + (r.isMy ? 'rp-my' : '') + '"><td class="rp-hosp">' + escH(r.hosp) + (r.isMy ? ' ★' : '') + '</td>' + tds + '</tr>';
+  }).join('');
+
+  const avgTds  = m.avgRow.map(v =>
+    '<td class="rp-val">' + (v == null ? '-' : rpFmt(Math.round(v))) + '</td><td class="rp-rank"></td>').join('');
+  const diffTds = m.diffRow.map(v =>
+    '<td class="rp-val">' + rpDiffHTML(v) + '</td><td class="rp-rank"></td>').join('');
+
+  const notes = [
+    '순위는 금액이 높은 병원이 1위이며, 동일 금액은 같은 순위입니다.',
+    '평균·차액은 위 표에 표시된 비교 병원(' + m.nHosp + '개) 기준이며, 차액은 본원 금액에서 평균을 뺀 값입니다. ( )는 본원이 평균보다 낮음을 의미합니다.',
+    '금액은 ' + m.mode + ' 기준입니다.' + (m.hasMulti
+      ? ' <b>*</b> 표시는 동일 코드에 복수 금액이 등록된 병원으로, 세부 항목은 <a href="' + RP_HIRA_URL.replace(/&/g, '&amp;') + '" target="_blank">심평원 비급여 진료비용 정보</a>에서 확인이 필요합니다.'
+      : ''),
+    m.hasMy ? '' : '⚠ 본원(' + escH(MY_HOSP) + ') 데이터가 선택한 항목에 없어 차액을 계산하지 못했습니다.',
+  ].filter(Boolean).map(t => '<div>· ' + t + '</div>').join('');
+
+  return '' +
+  '<div class="rp-bar">' +
+    '<button class="rp-btn" onclick="exportReportExcel()">📥 보고용 표 엑셀 저장</button>' +
+    '<span class="rp-hint">위 <b>기준값</b> 버튼(최솟값/평균값/최댓값)에 따라 금액과 순위가 바뀝니다.</span>' +
+  '</div>' +
+  '<div class="rp-paper">' +
+    '<div class="rp-title">상급종합병원 비급여 현황</div>' +
+    '<div class="rp-meta"><span>기준: ' + m.mode + (m.updated ? ' · 수집 ' + m.updated : '') + ' · 비교 병원 ' + m.nHosp + '개</span><span>(단위 : 원)</span></div>' +
+    '<div class="rp-scroll"><table class="rp-table">' +
+      '<thead><tr><th class="rp-corner"></th>' + groupHead + '</tr>' +
+      '<tr><th class="rp-hosp-h">병원명</th>' + subHead + '</tr></thead>' +
+      '<tbody>' + body +
+        '<tr class="rp-avg"><td class="rp-hosp">비교 병원 평균</td>' + avgTds + '</tr>' +
+        '<tr class="rp-diff"><td class="rp-hosp">(본원 비급여금액과 차액)</td>' + diffTds + '</tr>' +
+      '</tbody></table></div>' +
+    '<div class="rp-note">' + notes + '</div>' +
+  '</div>';
+}
+
+// 엑셀 워크북 생성 (ExcelJS)
+function buildReportWorkbook(m, EJ) {
+  const wb = new EJ.Workbook();
+  wb.creator = '비급여 비교 대시보드';
+  const ws = wb.addWorksheet('보고용 비교표', {
+    views: [{ state: 'frozen', xSplit: 1, ySplit: 4 }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+
+  const nCols = 1 + m.cols.length * 2;
+  const argb  = hex => 'FF' + hex.replace('#', '').toUpperCase();
+  const line  = { style: 'thin', color: { argb: 'FFBFBFBF' } };
+  const box   = { top: line, left: line, bottom: line, right: line };
+  const fill  = hex => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: argb(hex) } });
+  const center = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
+  // 1행 제목
+  ws.mergeCells(1, 1, 1, nCols);
+  const t = ws.getCell(1, 1);
+  t.value = '상급종합병원 비급여 현황';
+  t.font = { name: '맑은 고딕', size: 20, bold: true };
+  t.alignment = center;
+  ws.getRow(1).height = 36;
+
+  // 2행 기준/단위
+  ws.getCell(2, 1).value = '기준: ' + m.mode + (m.updated ? ' · 수집 ' + m.updated : '') + ' · 비교 병원 ' + m.nHosp + '개';
+  ws.getCell(2, 1).font = { name: '맑은 고딕', size: 9, color: { argb: 'FF64748B' } };
+  const unitCell = ws.getCell(2, nCols);
+  unitCell.value = '(단위 : 원)';
+  unitCell.font = { name: '맑은 고딕', size: 10, bold: true };
+  unitCell.alignment = { horizontal: 'right' };
+
+  // 3행 분류 헤더 / 4행 항목 헤더
+  const g0 = ws.getCell(3, 1);
+  g0.fill = fill('#595959'); g0.border = box;
+  const h0 = ws.getCell(4, 1);
+  h0.value = '병원명'; h0.fill = fill('#2F5597'); h0.border = box;
+  h0.font = { name: '맑은 고딕', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+  h0.alignment = center;
+
+  let col = 2;
+  m.groups.forEach((g, gi) => {
+    const span = g.span * 2;
+    ws.mergeCells(3, col, 3, col + span - 1);
+    const c = ws.getCell(3, col);
+    c.value = g.name;
+    c.fill = fill(RP_GROUP_COLORS[gi % RP_GROUP_COLORS.length]);
+    c.font = { name: '맑은 고딕', size: 12, bold: true };
+    c.alignment = center;
+    for (let k = col; k < col + span; k++) ws.getCell(3, k).border = box;
+    col += span;
+  });
+  ws.getRow(3).height = 26;
+
+  m.cols.forEach((c, i) => {
+    const vc = ws.getCell(4, 2 + i * 2), rc = ws.getCell(4, 3 + i * 2);
+    vc.value = c.label; rc.value = '순위';
+    [vc, rc].forEach(x => {
+      x.fill = fill('#2F5597'); x.border = box;
+      x.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      x.alignment = center;
+    });
+  });
+  ws.getRow(4).height = 36;
+
+  // 병원 행
+  let row = 5;
+  m.hosps.forEach(r => {
+    const nc = ws.getCell(row, 1);
+    nc.value = r.hosp + (r.isMy ? ' ★' : '');
+    nc.alignment = { horizontal: 'center', vertical: 'middle' };
+    nc.font = { name: '맑은 고딕', size: 10, bold: r.isMy };
+    nc.border = box;
+    if (r.isMy) nc.fill = fill('#FFC000');
+
+    r.cells.forEach((s, i) => {
+      const vc = ws.getCell(row, 2 + i * 2), rc = ws.getCell(row, 3 + i * 2);
+      if (s) {
+        vc.value = s.value; vc.numFmt = '#,##0';
+        rc.value = s.rank;
+        if (s.count > 1) vc.note = '동일 코드 ' + s.count + '건 등록 (' + s.min.toLocaleString('ko-KR') + '~' + s.max.toLocaleString('ko-KR') + '원)';
+      } else {
+        vc.value = '-'; rc.value = '-';
+      }
+      vc.alignment = { horizontal: s ? 'right' : 'center', vertical: 'middle' };
+      rc.alignment = { horizontal: 'center', vertical: 'middle' };
+      [vc, rc].forEach(x => {
+        x.border = box;
+        x.font = { name: '맑은 고딕', size: 10, bold: r.isMy };
+        if (r.isMy) x.fill = fill('#FFC000');
+      });
+    });
+    row++;
+  });
+
+  // 평균 행
+  const avgR = row++;
+  const ac = ws.getCell(avgR, 1);
+  ac.value = '비교 병원 평균'; ac.alignment = { horizontal: 'center', vertical: 'middle' };
+  ac.font = { name: '맑은 고딕', size: 10, bold: true }; ac.fill = fill('#DCE6F1'); ac.border = box;
+  m.avgRow.forEach((v, i) => {
+    const vc = ws.getCell(avgR, 2 + i * 2), rc = ws.getCell(avgR, 3 + i * 2);
+    vc.value = v == null ? '-' : Math.round(v); vc.numFmt = '#,##0';
+    vc.alignment = { horizontal: v == null ? 'center' : 'right', vertical: 'middle' };
+    [vc, rc].forEach(x => { x.fill = fill('#DCE6F1'); x.border = box; x.font = { name: '맑은 고딕', size: 10, bold: true }; });
+  });
+
+  // 본원 차액 행 (음수: 빨간 괄호, 양수: 파랑)
+  const diffR = row++;
+  const dc = ws.getCell(diffR, 1);
+  dc.value = '(본원 비급여금액과 차액)'; dc.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  dc.font = { name: '맑은 고딕', size: 10, bold: true }; dc.fill = fill('#DCE6F1'); dc.border = box;
+  m.diffRow.forEach((v, i) => {
+    const vc = ws.getCell(diffR, 2 + i * 2), rc = ws.getCell(diffR, 3 + i * 2);
+    vc.value = v == null ? '-' : v;
+    vc.numFmt = '[Blue]#,##0;[Red](#,##0);0';
+    vc.alignment = { horizontal: v == null ? 'center' : 'right', vertical: 'middle' };
+    [vc, rc].forEach(x => { x.fill = fill('#DCE6F1'); x.border = box; x.font = { name: '맑은 고딕', size: 10, bold: true }; });
+  });
+
+  // 각주
+  row++;
+  const notes = [
+    '※ 순위는 금액이 높은 병원이 1위이며, 동일 금액은 같은 순위입니다.',
+    '※ 평균·차액은 표에 포함된 비교 병원(' + m.nHosp + '개) 기준이며, 차액은 본원 금액에서 평균을 뺀 값입니다. ( )는 본원이 평균보다 낮음을 의미합니다.',
+    '※ 금액은 ' + m.mode + ' 기준입니다.' + (m.hasMulti ? ' 메모(빨간 삼각형)가 있는 셀은 동일 코드에 복수 금액이 등록된 경우이며, 세부 항목은 심평원 비급여 진료비용 정보에서 확인이 필요합니다.' : ''),
+  ];
+  notes.forEach(txt => {
+    ws.mergeCells(row, 1, row, nCols);
+    const nc = ws.getCell(row, 1);
+    nc.value = txt;
+    nc.font = { name: '맑은 고딕', size: 9, color: { argb: 'FF64748B' } };
+    nc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+    row++;
+  });
+
+  // 열 너비
+  ws.getColumn(1).width = 24;
+  for (let i = 0; i < m.cols.length; i++) {
+    ws.getColumn(2 + i * 2).width = 13;
+    ws.getColumn(3 + i * 2).width = 6;
+  }
+  return wb;
+}
+
+async function exportReportExcel() {
+  const keys = [...selectedNames];
+  if (!keys.length) { alert('비교할 항목을 먼저 선택해주세요.'); return; }
+  if (typeof ExcelJS === 'undefined') {
+    alert('엑셀 라이브러리(ExcelJS)를 불러오지 못했습니다.\n인터넷 연결을 확인한 뒤 새로고침(Ctrl+Shift+R) 해주세요.');
+    return;
+  }
+  const m   = buildReportModel(keys);
+  const wb  = buildReportWorkbook(m, ExcelJS);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '비급여_보고용비교표_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 function setChartGridMode(mode) {
   chartGridMode = mode;
   renderTable();
@@ -1915,6 +2284,7 @@ function resetResult() {
     <div class="tab-row">
       <button class="tab-btn ${currentTab==='table'?'active':''}" onclick="switchTab('table')">📋 히트맵 테이블</button>
       <button class="tab-btn ${currentTab==='chart'?'active':''}" onclick="switchTab('chart')">📊 항목별 차트</button>
+    <button class="tab-btn ${currentTab==='report'?'active':''}" onclick="switchTab('report')">📑 보고용 비교표</button>
       <button class="tab-btn ${currentTab==='list'?'active':''}"  onclick="switchTab('list')">🗂 전체 목록</button>
     </div>
     <div class="empty"><div class="empty-icon">🔍</div>
