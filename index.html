@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>비급여 비교 대시보드 V7.3</title>
+<title>비급여 비교 대시보드 V7.4</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
@@ -178,12 +178,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .dd-sa{font-size:11.5px;color:var(--blue);cursor:pointer;font-weight:700;background:none;border:none;font-family:inherit;padding:0;}
 .dd-sa:hover{text-decoration:underline;}
 .dd-list{overflow-y:auto;flex:1;}
-.ddi{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;font-size:13px;border-bottom:1px solid #F5F7FA;user-select:none;}
+.ddi{display:flex;align-items:flex-start;gap:10px;padding:8px 14px;cursor:pointer;transition:background .1s;font-size:13px;border-bottom:1px solid #F5F7FA;user-select:none;}
 .ddi:hover{background:var(--light);}
 .ddi.sel{background:#EFF9FF;}
-.ddi input{accent-color:var(--blue);width:15px;height:15px;flex-shrink:0;pointer-events:none;}
-.ddi-name{flex:1;}
-.ddi-edi{font-size:11px;color:var(--muted);}
+.ddi input{accent-color:var(--blue);width:15px;height:15px;flex-shrink:0;pointer-events:none;margin-top:2px;}
+.ddi-name{flex:1;min-width:0;line-height:1.4;overflow-wrap:anywhere;}
+.ddi-pre{display:block;font-size:10.5px;color:#94A3B8;margin-bottom:1px;}
+.ddi-main{display:block;font-weight:600;color:var(--navy);}
+.ddi-edi{flex-shrink:0;padding-top:2px;font-size:11px;color:var(--muted);font-family:monospace;}
 .dd-foot{padding:8px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--light);flex-shrink:0;border-radius:0 0 10px 10px;}
 .dd-cnt{font-size:11.5px;color:var(--muted);}
 .dd-ok{padding:6px 18px;background:var(--blue);color:#fff;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
@@ -192,7 +194,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 /* 칩 */
 .sel-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .chip{display:flex;align-items:center;gap:5px;background:#EFF9FF;border:1px solid #B8E4F9;padding:4px 10px;border-radius:20px;font-size:12px;color:var(--blue);}
-.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:340px;}
 .chip-del{cursor:pointer;color:#94A3B8;flex-shrink:0;font-size:14px;line-height:1;}
 .chip-del:hover{color:var(--pink);}
 .chip-clear{background:#F1F5F9;border-color:#CBD5E1;color:var(--muted);cursor:pointer;}
@@ -286,6 +288,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .rp-bar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;flex-wrap:wrap;}
 .rp-btn{padding:7px 16px;border:none;border-radius:8px;background:#1a7a4a;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;}
 .rp-btn:hover{opacity:.9;}
+.rp-btn-alt{background:#2E86C1;}
 .rp-ctl{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#475569;font-weight:600;}
 .rp-ctl input[type=range]{width:110px;accent-color:#2E86C1;cursor:pointer;}
 .rp-ctl b{display:inline-block;min-width:42px;color:#1E293B;font-variant-numeric:tabular-nums;}
@@ -300,9 +303,9 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
 .rp-table th,.rp-table td{box-sizing:border-box;border-right:1px solid #B8C2CF;border-bottom:1px solid #B8C2CF;padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:none;filter:none;}
 .rp-table thead th{position:sticky;z-index:3;text-align:center;font-weight:700;}
 .rp-table th.rp-corner{top:0;left:0;z-index:6;background:#595959;}
-.rp-table th.rp-grp{top:0;height:30px;color:#1E293B;font-size:13px;font-weight:800;}
-.rp-table th.rp-hosp-h{top:30px;left:0;z-index:6;background:#2F5597;color:#fff;font-size:12px;overflow:visible;}
-.rp-table th.rp-sub{top:30px;background:#2F5597;color:#fff;font-size:12px;white-space:normal;line-height:1.3;}
+.rp-table th.rp-grp{top:0;height:30px;color:#1E293B;font-size:13px;font-weight:800;white-space:normal;line-height:1.3;overflow:visible;text-overflow:clip;}
+.rp-table th.rp-hosp-h{top:var(--rp-gh,30px);left:0;z-index:6;background:#2F5597;color:#fff;font-size:12px;overflow:visible;}
+.rp-table th.rp-sub{top:var(--rp-gh,30px);background:#2F5597;color:#fff;font-size:12px;white-space:normal;line-height:1.3;}
 .rp-table th.rp-sub-rank{padding-left:2px;padding-right:2px;overflow:visible;}
 .rp-table td{text-align:center;color:#1E293B;background:#fff;cursor:default;}
 .rp-table td.rp-hosp{position:sticky;left:0;z-index:2;text-align:left;font-weight:700;font-size:12.5px;background:#F4F7FB;padding-left:12px;line-height:1.4;border-right:2px solid #8A97A8;}
@@ -575,7 +578,7 @@ tbody td:first-child{text-align:left;background:#F8FAFD;font-weight:600;font-siz
   <aside class="sidebar" id="sidebarEl">
     <div class="sb-logo">
       <h1>📊 비급여 통합 비교 대시보드</h1>
-      <p>전국 상급종합병원 V7.3</p>
+      <p>전국 상급종합병원 V7.4</p>
     </div>
     <div class="sb-section">
       <div class="sb-section-title">비교 병원 선택</div>
@@ -1244,7 +1247,7 @@ function renderDropdown() {
     const chk = ddSelected.has(item.key);
     return `<div class="ddi ${chk?'sel':''}" onclick="event.stopPropagation();toggleDdItem(${idx})">
       <input type="checkbox" ${chk?'checked':''}>
-      <span class="ddi-name">${escH(truncate(item.name,30))}${item.unit?` <span style="color:#94A3B8;font-size:10px">[${escH(item.unit)}]</span>`:''}</span>
+      <span class="ddi-name">${item.name.indexOf('/')>-1?`<span class="ddi-pre">${escH(item.name.slice(0,item.name.indexOf('/')))}</span>`:''}<span class="ddi-main">${escH(item.name.indexOf('/')>-1?item.name.slice(item.name.indexOf('/')+1):item.name)}${item.unit?` <span style="color:#94A3B8;font-size:10px;font-weight:400">[${escH(item.unit)}]</span>`:''}</span></span>
       <span class="ddi-edi">${escH(item.ediCode)}</span>
     </div>`;
   }).join('');
@@ -1302,7 +1305,7 @@ function renderChips(filterKw) {
       const name = getName(key);
       const edi  = key.split('|||')[1]||'';
       return `<div class="chip">
-        <span title="${escH(name)} (${escH(edi)})">${escH(truncate(name,20))}</span>
+        <span title="${escH(name)} (${escH(edi)})">${escH(truncMid(name,30))}</span>
         <span class="chip-del" onclick="removeChip('${escJs(key)}')">×</span>
       </div>`;
     }).join('') +
@@ -1883,13 +1886,14 @@ const RP_DEF = { val: 112, hosp: 160, rank: 44 };
 function rpLoadW() {
   try {
     const o = JSON.parse(localStorage.getItem('rp_widths') || 'null');
-    if (o && o.val && o.hosp) return { val: +o.val, hosp: +o.hosp, cols: o.cols || {} };
+    if (o && o.val && o.hosp) return { val: Math.max(100, +o.val), hosp: Math.max(100, +o.hosp), cols: o.cols || {} };
   } catch (e) {}
   return { val: RP_DEF.val, hosp: RP_DEF.hosp, cols: {} };
 }
 let rpW = rpLoadW();
 function rpSaveW() { try { localStorage.setItem('rp_widths', JSON.stringify(rpW)); } catch (e) {} }
-function rpColPx(key) { return rpW.cols[key] || rpW.val; }
+const RP_MIN_COL = 100;     // 금액(예: 12,938,333*)이 잘리지 않는 최소 폭
+function rpColPx(key) { return Math.max(RP_MIN_COL, rpW.cols[key] || rpW.val); }
 
 // 현재 화면의 표에 너비 반영 (colgroup + 표 전체 폭 + 슬라이더 표시)
 function rpApplyWidths() {
@@ -1903,6 +1907,8 @@ function rpApplyWidths() {
     total += px;
   });
   t.style.width = total + 'px';
+  const gh = t.querySelector('th.rp-grp');                         // 분류 머리글이 줄바꿈되면 아래 머리글 고정 위치도 함께 이동
+  if (gh) t.style.setProperty('--rp-gh', gh.offsetHeight + 'px');
   const set = (id, v, txt) => { const el = document.getElementById(id); if (el) { if (v != null) el.value = v; if (txt != null) el.textContent = txt; } };
   set('rpValRange', rpW.val); set('rpValLbl', null, rpW.val + 'px');
   set('rpHospRange', rpW.hosp); set('rpHospLbl', null, rpW.hosp + 'px');
@@ -1927,7 +1933,7 @@ function rpBindResize() {
       const startX = e.clientX;
       const startW = k === 'hosp' ? rpW.hosp : rpColPx(k);
       const move = ev => {
-        const w = Math.max(60, Math.min(420, Math.round(startW + ev.clientX - startX)));
+        const w = Math.max(RP_MIN_COL, Math.min(420, Math.round(startW + ev.clientX - startX)));
         if (k === 'hosp') rpW.hosp = w; else rpW.cols[k] = w;
         rpApplyWidths();
       };
@@ -2138,8 +2144,10 @@ function buildReportHTML(keys) {
 
   return '<div class="rp-root">' +
   '<div class="rp-bar">' +
-    '<button class="rp-btn" onclick="exportReportExcel()">📥 보고용 표 엑셀 저장</button>' +
-    '<span class="rp-ctl">항목 열 너비 <input type="range" id="rpValRange" min="70" max="240" step="2" value="' + rpW.val + '" oninput="rpSetWidth(\'val\',this.value)"><b id="rpValLbl">' + rpW.val + 'px</b></span>' +
+    '<button class="rp-btn" onclick="exportReportExcel()">📥 엑셀 저장</button>' +
+    '<button class="rp-btn rp-btn-alt" onclick="exportReportPNG()" title="화면과 같은 모양의 이미지 파일(PNG)">🖼 이미지 저장</button>' +
+    '<button class="rp-btn rp-btn-alt" onclick="exportReportPDF()" title="A4 PDF (표가 길면 여러 쪽)">📄 PDF 저장</button>' +
+    '<span class="rp-ctl">항목 열 너비 <input type="range" id="rpValRange" min="100" max="240" step="2" value="' + rpW.val + '" oninput="rpSetWidth(\'val\',this.value)"><b id="rpValLbl">' + rpW.val + 'px</b></span>' +
     '<span class="rp-ctl">병원명 열 <input type="range" id="rpHospRange" min="100" max="300" step="2" value="' + rpW.hosp + '" oninput="rpSetWidth(\'hosp\',this.value)"><b id="rpHospLbl">' + rpW.hosp + 'px</b></span>' +
     '<button class="rp-reset" onclick="rpResetWidth()">↺ 기본값</button>' +
     '<label class="rp-chk"><input type="checkbox" id="rpStarChk" ' + (m.showStar ? 'checked' : '') + ' onchange="rpToggleStar(this.checked)"> 복수금액 * 표시</label>' +
@@ -2304,6 +2312,333 @@ function buildReportWorkbook(m, EJ) {
     ws.getColumn(3 + i * 2).width = rpPxToChar(RP_DEF.rank);
   }
   return wb;
+}
+
+/* ══════════════════════════════════════════════
+   보고용 표 → 이미지(PNG) · PDF 저장
+   표를 직접 캔버스에 그리므로 화면에서 맞춘 열 너비·정렬·* 표시가 그대로 반영된다.
+   PDF는 A4(가로/세로 자동)에 맞추고, 표가 길면 머리글을 반복하며 여러 쪽으로 나눈다.
+══════════════════════════════════════════════ */
+const RP_FONT = '"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+const rpFont = (w, px) => w + ' ' + px + 'px ' + RP_FONT;
+
+function rpNoteLines(m) {
+  const a = [
+    '순위는 금액이 높은 병원이 1위이며, 동일 금액은 같은 순위입니다.',
+    '평균·차액은 표에 포함된 비교 병원(' + m.nHosp + '개) 기준이며, 차액은 본원 금액에서 평균을 뺀 값입니다. ( )는 본원이 평균보다 낮음을 의미합니다.',
+    '금액은 ' + m.mode + ' 기준입니다.' + (m.hasMulti
+      ? (m.showStar ? ' * 표시는 동일 코드에 복수 금액이 등록된 병원으로, 세부 항목은 심평원 비급여 진료비용 정보에서 확인이 필요합니다.'
+                    : ' 동일 코드에 복수 금액이 등록된 병원이 있으며, 세부 항목은 심평원 비급여 진료비용 정보에서 확인이 필요합니다.')
+      : ''),
+  ];
+  if (!m.hasMy) a.push('⚠ 본원(' + MY_HOSP + ') 데이터가 선택한 항목에 없어 차액을 계산하지 못했습니다.');
+  return a.map(t => '· ' + t);
+}
+
+// 글자 단위 줄바꿈 (공백·/ 에서 우선 끊음)
+function rpWrap(ctx, text, maxW) {
+  const lines = []; let cur = '';
+  for (const ch of String(text)) {
+    if (cur && ctx.measureText(cur + ch).width > maxW) {
+      const k = Math.max(cur.lastIndexOf(' '), cur.lastIndexOf('/'));
+      if (k > 0 && k >= cur.length - 8) { lines.push(cur.slice(0, k + 1).trimEnd()); cur = cur.slice(k + 1) + ch; }
+      else { lines.push(cur); cur = ch; }
+    } else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+function rpFit(ctx, text, maxW) {
+  text = String(text);
+  if (ctx.measureText(text).width <= maxW) return text;
+  while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
+  return text + '…';
+}
+
+// 표 배치 계산 (열 너비는 화면 설정과 동일)
+function L_span(m, g, colW) {            // 분류 머리글이 차지하는 가로 폭(px)
+  let first = 0; for (const x of m.groups) { if (x === g) break; first += x.span; }
+  let w = 0; for (let k = 0; k < g.span * 2; k++) w += colW[1 + first * 2 + k]; return w;
+}
+function rpLayout(m) {
+  const ctx = document.createElement('canvas').getContext('2d');
+  const hospW = m.hospPx || RP_DEF.hosp;
+  const colW = [hospW];
+  m.cols.forEach(c => colW.push(c.px || RP_DEF.val, RP_DEF.rank));
+  const x = [0]; colW.forEach((w, i) => x.push(x[i] + w));
+  const tableW = x[x.length - 1];
+  const padX = 24, padY = 20;
+  const contentW = Math.max(tableW, 560);
+
+  ctx.font = rpFont(700, 12);
+  let subLines = 1;
+  m.cols.forEach(c => { subLines = Math.max(subLines, rpWrap(ctx, c.label, (c.px || RP_DEF.val) - 16).length); });
+  ctx.font = rpFont(800, 13);
+  const grpLines = m.groups.map(g => rpWrap(ctx, g.name, L_span(m, g, colW) - 16));
+  const groupH = Math.max(30, Math.max(...grpLines.map(a => a.length)) * 17 + 13), subH = Math.max(34, subLines * 16 + 14);
+
+  ctx.font = rpFont(800, 12.5);
+  const lblLines = t => rpWrap(ctx, t, hospW - 24).length;
+  const avgH = Math.max(30, lblLines('비교 병원 평균') * 17 + 12);
+  const diffH = Math.max(30, lblLines('(본원 비급여금액과 차액)') * 17 + 12);
+  const rowH = m.hosps.map(() => 30);
+
+  ctx.font = rpFont(400, 11);
+  const notes = [];
+  rpNoteLines(m).forEach(t => rpWrap(ctx, t, contentW).forEach((l, i) => notes.push(i ? '   ' + l : l)));
+  const noteH = notes.length * 18 + 8;
+
+  return { colW, x, tableW, padX, padY, contentW, W: contentW + padX * 2, groupH, grpLines, subH, rowH, avgH, diffH, notes, noteH, titleH: 84 };
+}
+
+// 한 쪽(또는 전체)을 캔버스에 그림. o = {from,to,title,summary,notes,scale}
+function rpRenderCanvas(m, L, o) {
+  const rows = m.hosps.slice(o.from, o.to);
+  let bodyH = 0; for (let i = o.from; i < o.to; i++) bodyH += L.rowH[i];
+  const H = L.padY * 2 + (o.title ? L.titleH : 0) + L.groupH + L.subH + bodyH + (o.summary ? L.avgH + L.diffH : 0) + (o.notes ? 14 + L.noteH : 0);
+  const S = o.scale || 2;
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(L.W * S); cv.height = Math.round(H * S);
+  const ctx = cv.getContext('2d');
+  ctx.scale(S, S);
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, L.W, H);
+  ctx.textBaseline = 'middle';
+
+  const x0 = L.padX + (L.contentW - L.tableW) / 2;
+  let y = L.padY;
+  if (o.tag) { ctx.fillStyle = '#94A3B8'; ctx.font = rpFont(400, 10); ctx.textAlign = 'right'; ctx.fillText(o.tag, x0 + L.tableW, 11); }
+
+  if (o.title) {
+    ctx.fillStyle = '#0F2744'; ctx.font = rpFont(800, 22); ctx.textAlign = 'center';
+    ctx.fillText('상급종합병원 비급여 현황', L.W / 2, y + 22);
+    ctx.fillStyle = '#64748B'; ctx.font = rpFont(400, 11.5);
+    ctx.textAlign = 'left';  ctx.fillText('기준: ' + m.mode + (m.updated ? ' · 수집 ' + m.updated : '') + ' · 비교 병원 ' + m.nHosp + '개', x0, y + 62);
+    ctx.textAlign = 'right'; ctx.fillText('(단위 : 원)', x0 + L.tableW, y + 62);
+    y += L.titleH;
+  }
+
+  const BORDER = '#B8C2CF';
+  const cell = (cx, cy, w, h, fill) => {
+    ctx.fillStyle = fill; ctx.fillRect(cx, cy, w, h);
+    ctx.strokeStyle = BORDER; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, cy + 0.5, w - 1, h - 1);
+  };
+  const text = (t, cx, cy, align, color, font, maxW) => {
+    ctx.fillStyle = color; ctx.font = font; ctx.textAlign = align;
+    ctx.fillText(maxW ? rpFit(ctx, t, maxW) : t, cx, cy);
+  };
+
+  // 분류 머리글 (1행)
+  cell(x0, y, L.colW[0], L.groupH, '#595959');
+  let ci = 0;
+  m.groups.forEach((g, gi) => {
+    const first = 1 + ci * 2, w = L.x[first + g.span * 2] - L.x[first];
+    cell(x0 + L.x[first], y, w, L.groupH, RP_GROUP_COLORS[(g.ci != null ? g.ci : gi) % RP_GROUP_COLORS.length]);
+    const gl = L.grpLines[gi], glh = 17, gtop = y + L.groupH / 2 - (gl.length * glh) / 2 + glh / 2;
+    gl.forEach((ln, k) => text(ln, x0 + L.x[first] + w / 2, gtop + k * glh, 'center', '#1E293B', rpFont(800, 13)));
+    ci += g.span;
+  });
+  y += L.groupH;
+
+  // 항목 머리글 (2행)
+  cell(x0, y, L.colW[0], L.subH, '#2F5597');
+  text('병원명', x0 + L.colW[0] / 2, y + L.subH / 2, 'center', '#FFFFFF', rpFont(700, 12));
+  m.cols.forEach((c, i) => {
+    const sorted = m.sortKey === c.key, fill = sorted ? '#1F4E8C' : '#2F5597';
+    const vx = x0 + L.x[1 + i * 2], vw = L.colW[1 + i * 2], rx = x0 + L.x[2 + i * 2], rw = L.colW[2 + i * 2];
+    cell(vx, y, vw, L.subH, fill); cell(rx, y, rw, L.subH, fill);
+    ctx.font = rpFont(700, 12);
+    const lines = rpWrap(ctx, c.label, vw - 16), lh = 16, top = y + L.subH / 2 - (lines.length * lh) / 2 + lh / 2;
+    lines.forEach((ln, k) => text(ln, vx + vw / 2, top + k * lh, 'center', '#FFFFFF', rpFont(700, 12)));
+    text('순위' + (sorted ? (m.sortDir === 'desc' ? '▼' : '▲') : ''), rx + rw / 2, y + L.subH / 2, 'center', '#FFFFFF', rpFont(700, 12));
+  });
+  y += L.subH;
+
+  // 병원 행
+  rows.forEach((r, k) => {
+    const h = L.rowH[o.from + k], bg = r.isMy ? '#FFC000' : '#FFFFFF', hbg = r.isMy ? '#FFC000' : '#F4F7FB';
+    cell(x0, y, L.colW[0], h, hbg);
+    text(r.hosp + (r.isMy ? ' ★' : ''), x0 + 12, y + h / 2, 'left', '#1E293B', rpFont(700, 12.5), L.colW[0] - 20);
+    r.cells.forEach((s, i) => {
+      const vx = x0 + L.x[1 + i * 2], vw = L.colW[1 + i * 2], rx = x0 + L.x[2 + i * 2], rw = L.colW[2 + i * 2];
+      cell(vx, y, vw, h, bg); cell(rx, y, rw, h, bg);
+      if (!s) { text('-', vx + vw / 2, y + h / 2, 'center', '#A0AEC0', rpFont(400, 12.5)); text('-', rx + rw / 2, y + h / 2, 'center', '#A0AEC0', rpFont(400, 12.5)); return; }
+      const star = s.count > 1 && m.showStar;
+      text(rpFmt(s.value), vx + vw - 12 - (star ? 7 : 0), y + h / 2, 'right', '#1E293B', rpFont(r.isMy ? 800 : 600, 12.5));
+      if (star) text('*', vx + vw - 11, y + h / 2 - 4, 'right', '#E8445A', rpFont(800, 12));
+      text(String(s.rank), rx + rw / 2, y + h / 2, 'center', r.isMy ? '#1E293B' : '#475569', rpFont(700, 12.5));
+    });
+    y += h;
+  });
+
+  // 평균 · 차액 행
+  if (o.summary) {
+    const sumRow = (label, h, vals, isDiff) => {
+      cell(x0, y, L.colW[0], h, '#DCE6F1');
+      ctx.font = rpFont(800, 12.5);
+      const lines = rpWrap(ctx, label, L.colW[0] - 24), lh = 17, top = y + h / 2 - (lines.length * lh) / 2 + lh / 2;
+      lines.forEach((ln, k) => text(ln, x0 + 12, top + k * lh, 'left', '#1E293B', rpFont(800, 12.5)));
+      vals.forEach((v, i) => {
+        const vx = x0 + L.x[1 + i * 2], vw = L.colW[1 + i * 2], rx = x0 + L.x[2 + i * 2], rw = L.colW[2 + i * 2];
+        cell(vx, y, vw, h, '#DCE6F1'); cell(rx, y, rw, h, '#DCE6F1');
+        let t = '-', col = '#1E293B';
+        if (v != null) {
+          if (!isDiff) t = rpFmt(Math.round(v));
+          else if (v < 0) { t = '(' + rpFmt(-v) + ')'; col = '#D92D20'; }
+          else if (v > 0) { t = rpFmt(v); col = '#1D4ED8'; }
+          else t = '0';
+        }
+        text(t, vx + vw - 12, y + h / 2, v == null ? 'center' : 'right', col, rpFont(800, 12.5));
+        if (v == null) { ctx.textAlign = 'center'; }
+      });
+      y += h;
+    };
+    sumRow('비교 병원 평균', L.avgH, m.avgRow, false);
+    sumRow('(본원 비급여금액과 차액)', L.diffH, m.diffRow, true);
+  }
+
+  // 외곽선 강조 (병원명 열 오른쪽)
+  ctx.strokeStyle = '#8A97A8'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0 + L.colW[0], L.padY + (o.title ? L.titleH : 0) + L.groupH); ctx.lineTo(x0 + L.colW[0], y); ctx.stroke();
+
+  if (o.notes) {
+    y += 14;
+    ctx.font = rpFont(400, 11); ctx.fillStyle = '#64748B'; ctx.textAlign = 'left';
+    L.notes.forEach((ln, k) => ctx.fillText(ln, x0, y + 9 + k * 18));
+  }
+  return { canvas: cv, W: L.W, H };
+}
+
+function rpDownload(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+const rpToBlob = (cv, type, q) => new Promise(res => cv.toBlob(res, type, q));
+function rpFileName(ext) { return '비급여_보고용비교표_' + new Date().toISOString().slice(0, 10) + '.' + ext; }
+
+async function rpPrepare() {
+  const keys = [...selectedNames];
+  if (!keys.length) { alert('비교할 항목을 먼저 선택해주세요.'); return null; }
+  try { await document.fonts.ready; } catch (e) {}
+  const m = buildReportModel(keys);
+  return { m, L: rpLayout(m) };
+}
+
+async function exportReportPNG() {
+  const p = await rpPrepare(); if (!p) return;
+  const { m, L } = p;
+  const S = L.W * 2 > 16000 ? 1 : 2;               // 아주 넓은 표는 해상도를 낮춰 브라우저 한계를 피함
+  const { canvas } = rpRenderCanvas(m, L, { from: 0, to: m.hosps.length, title: true, summary: true, notes: true, scale: S });
+  rpDownload(await rpToBlob(canvas, 'image/png'), rpFileName('png'));
+}
+
+// 항목 열 일부만 담은 부분 표 (분류 색은 원래 순서를 유지)
+function rpSubModel(m, from, to) {
+  const cols = m.cols.slice(from, to), groups = [];
+  cols.forEach(c => {
+    const g = groups[groups.length - 1];
+    if (g && g.name === c.group) g.span++;
+    else groups.push({ name: c.group, span: 1, ci: Math.max(0, m.groups.findIndex(x => x.name === c.group)) });
+  });
+  return { ...m, cols, groups, hosps: m.hosps.map(r => ({ ...r, cells: r.cells.slice(from, to) })),
+           avgRow: m.avgRow.slice(from, to), diffRow: m.diffRow.slice(from, to) };
+}
+
+// A4 배치 계획
+//  ① 한 쪽에 읽을 만한 크기(원래 크기의 70% 이상)로 들어가면 한 쪽
+//  ② 아니면 항목을 묶음으로 나누고, 길면 머리글을 반복하며 여러 쪽 (가로/세로 중 쪽 수가 적은 방향 선택)
+function rpPlanPdf(m, L) {
+  const MARGIN = 10, REF = 0.2646, MAXS = 0.3175, MIN_R = 0.7;   // mm, 96dpi 1px, 확대 상한(1.2배), 최소 배율
+  const dims = { landscape: [297, 210], portrait: [210, 297] };
+  const sum = (LL, a, b) => { let t = 0; for (let i = a; i < b; i++) t += LL.rowH[i]; return t; };
+  const n = m.hosps.length;
+  const fullH = L.padY * 2 + L.titleH + L.groupH + L.subH + sum(L, 0, n) + L.avgH + L.diffH + 14 + L.noteH;
+
+  let best = null;
+  for (const o of ['landscape', 'portrait']) {
+    const s = Math.min((dims[o][0] - 2 * MARGIN) / L.W, (dims[o][1] - 2 * MARGIN) / fullH, MAXS);
+    if (!best || s > best.s) best = { o, s };
+  }
+  if (best.s / REF >= MIN_R) {
+    return { orient: best.o, pages: [{ m, L, s: best.s, from: 0, to: n, title: true, summary: true, notes: true }] };
+  }
+
+  const planFor = orient => {
+    const [pw, ph] = dims[orient], usable = pw - 2 * MARGIN, limitPx = usable / (REF * MIN_R);
+    const base = L.colW[0] + L.padX * 2, ranges = [];
+    let start = 0, w = base;
+    m.cols.forEach((c, i) => {                                   // 한 쪽에 들어갈 항목 수를 폭 기준으로 계산
+      const cw = (c.px || RP_DEF.val) + RP_DEF.rank;
+      if (i > start && w + cw > limitPx) { ranges.push([start, i]); start = i; w = base; }
+      w += cw;
+    });
+    ranges.push([start, m.cols.length]);
+
+    const pages = [];
+    ranges.forEach(([a, b], ci) => {
+      const sm = ranges.length > 1 ? rpSubModel(m, a, b) : m, sL = ranges.length > 1 ? rpLayout(sm) : L;
+      const s = Math.min(usable / sL.W, MAXS), cap = (ph - 2 * MARGIN) / s;
+      const lastChunk = ci === ranges.length - 1, tail = sL.avgH + sL.diffH + (lastChunk ? 14 + sL.noteH : 0);
+      let i = 0;
+      while (i < n) {
+        const title = ci === 0 && i === 0, head = sL.padY * 2 + (title ? sL.titleH : 0) + sL.groupH + sL.subH;
+        if (head + sum(sL, i, n) + tail <= cap) { pages.push({ m: sm, L: sL, s, from: i, to: n, title, summary: true, notes: lastChunk, chunk: [a, b] }); i = n; break; }
+        let h = head, j = i;
+        while (j < n && h + sL.rowH[j] <= cap) { h += sL.rowH[j]; j++; }
+        if (j === i) j = i + 1;
+        pages.push({ m: sm, L: sL, s, from: i, to: j, title, chunk: [a, b] }); i = j;
+      }
+      if (!pages.length || !pages[pages.length - 1].summary || pages[pages.length - 1].chunk[0] !== a)
+        pages.push({ m: sm, L: sL, s, from: n, to: n, title: false, summary: true, notes: lastChunk, chunk: [a, b] });
+    });
+    return { orient, pages, s: Math.min(...pages.map(p => p.s)) };
+  };
+
+  const plans = ['landscape', 'portrait'].map(planFor).sort((x, y) => x.pages.length - y.pages.length || y.s - x.s);
+  return plans[0];
+}
+
+// 최소 PDF 작성기 (쪽마다 JPEG 이미지 1장)
+function rpMakePdf(pages) {
+  const enc = new TextEncoder(), chunks = [], offs = []; let len = 0;
+  const push = u8 => { chunks.push(u8); len += u8.length; };
+  const str = s => push(enc.encode(s));
+  const obj = (n, fn) => { offs[n] = len; str(n + ' 0 obj\n'); fn(); str('\nendobj\n'); };
+  const N = pages.length, mm = v => v * 72 / 25.4;
+  str('%PDF-1.4\n');
+  obj(1, () => str('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2, () => str('<< /Type /Pages /Count ' + N + ' /Kids [' + pages.map((_, i) => (3 + 3 * i) + ' 0 R').join(' ') + '] >>'));
+  pages.forEach((p, i) => {
+    const pn = 3 + 3 * i, cn = 4 + 3 * i, im = 5 + 3 * i;
+    const PW = mm(p.pageW), PH = mm(p.pageH), w = mm(p.drawW), h = mm(p.drawH), x = mm(p.x), y = PH - mm(p.y) - h;
+    obj(pn, () => str('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW.toFixed(2) + ' ' + PH.toFixed(2) + '] /Resources << /XObject << /Im0 ' + im + ' 0 R >> /ProcSet [/PDF /ImageC] >> /Contents ' + cn + ' 0 R >>'));
+    const content = 'q ' + w.toFixed(2) + ' 0 0 ' + h.toFixed(2) + ' ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' cm /Im0 Do Q';
+    obj(cn, () => str('<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'));
+    obj(im, () => { str('<< /Type /XObject /Subtype /Image /Width ' + p.px + ' /Height ' + p.py + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.jpeg.length + ' >>\nstream\n'); push(p.jpeg); str('\nendstream'); });
+  });
+  const total = 3 + 3 * N, xref = len;
+  str('xref\n0 ' + total + '\n0000000000 65535 f \n');
+  for (let n = 1; n < total; n++) str(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
+  str('trailer\n<< /Size ' + total + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF');
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+
+async function exportReportPDF() {
+  const p = await rpPrepare(); if (!p) return;
+  const { m, L } = p;
+  const plan = rpPlanPdf(m, L), total = plan.pages.length;
+  const [PW, PH] = plan.orient === 'landscape' ? [297, 210] : [210, 297];
+  const pages = [];
+  for (let k = 0; k < total; k++) {
+    const pg = plan.pages[k], S = pg.L.W * 2 > 12000 ? 1 : 2;
+    const tag = total > 1 ? ((pg.chunk && m.cols.length > pg.m.cols.length) ? '항목 ' + (pg.chunk[0] + 1) + '~' + pg.chunk[1] + ' / 총 ' + m.cols.length + '개  ·  ' : '') + (k + 1) + ' / ' + total + '쪽' : '';
+    const { canvas, W, H } = rpRenderCanvas(pg.m, pg.L, { from: pg.from, to: pg.to, title: pg.title, summary: pg.summary, notes: pg.notes, scale: S, tag });
+    const jpeg = new Uint8Array(await (await rpToBlob(canvas, 'image/jpeg', 0.93)).arrayBuffer());
+    const drawW = W * pg.s, drawH = H * pg.s;
+    pages.push({ jpeg, px: canvas.width, py: canvas.height, pageW: PW, pageH: PH, drawW, drawH, x: (PW - drawW) / 2, y: 10 });
+  }
+  rpDownload(rpMakePdf(pages), rpFileName('pdf'));
 }
 
 async function exportReportExcel() {
@@ -2661,6 +2996,7 @@ function buildColorMap(sorted){
 }
 const escH  = s=>(s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const escJs = s=>(s+'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+function truncMid(s,n){ s=String(s); if(s.length<=n) return s; const a=Math.ceil((n-1)*0.5), b=n-1-a; return s.slice(0,a)+'…'+s.slice(s.length-b); }
 const truncate=(s,n)=>s.length>n?s.slice(0,n)+'…':s;
 
 function normalizeUnit(v) {
